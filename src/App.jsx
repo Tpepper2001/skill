@@ -1,7 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import { BrowserRouter, Routes, Route, Link, useNavigate, useLocation, Navigate, useParams } from 'react-router-dom'
-import { useAuth } from './hooks/useAuth'
-import { supabase } from './lib/supabase'
+import React, { useState, useEffect, useCallback } from 'react';
+import { BrowserRouter, Routes, Route, Link, useNavigate, useLocation, Navigate, useParams } from 'react-router-dom';
+import { useAuth } from './hooks/useAuth';
+import { supabase } from './lib/supabase';
+import { format, subDays, startOfDay } from 'date-fns';
+import {
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer
+} from 'recharts';
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const T = {
@@ -24,10 +28,10 @@ const T = {
   radiusSm:  '8px',
   shadow:    '0 4px 24px rgba(0,0,0,0.45)',
   shadowGlow:'0 0 30px rgba(56,189,248,0.12)',
-}
+};
 
-// ─── GLOBAL STYLES + ANIMATIONS ──────────────────────────────────────────────
-const globalStyle = document.createElement('style')
+// ─── GLOBAL STYLES ────────────────────────────────────────────────────────────
+const globalStyle = document.createElement('style');
 globalStyle.textContent = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; background: ${T.bg}; color: ${T.textPri}; font-family: ${T.fontBody}; }
@@ -48,7 +52,6 @@ globalStyle.textContent = `
   .fade-up { animation: fadeUp 0.5s ease both; }
   .check-pop { animation: checkPop 0.35s ease both; }
 
-  /* ── MOBILE RESPONSIVE UTILITIES ── */
   @media (max-width: 768px) {
     .hide-mobile { display: none !important; }
     .mobile-col { flex-direction: column !important; }
@@ -66,7 +69,6 @@ globalStyle.textContent = `
     .xs-text-xs { font-size: 12px !important; }
   }
   
-  /* ── PROGRESS INDICATOR ANIMATION ── */
   @keyframes progressFill {
     from { width: 0%; }
     to { width: var(--target-width); }
@@ -75,24 +77,23 @@ globalStyle.textContent = `
     transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  /* ── MODULE COMPLETION INDICATOR ── */
   .module-item { transition: all 0.25s ease; }
   .module-item:hover { background: rgba(56,189,248,0.06) !important; }
   .module-item.completed { border-left: 3px solid ${T.green}; }
   .module-item.active { border-left: 3px solid ${T.accent}; }
-`
-document.head.appendChild(globalStyle)
+`;
+document.head.appendChild(globalStyle);
 
 // ─── MOBILE HELPERS ───────────────────────────────────────────────────────────
 const useWindowSize = () => {
-  const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight })
+  const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
   useEffect(() => {
-    const handler = () => setSize({ width: window.innerWidth, height: window.innerHeight })
-    window.addEventListener('resize', handler)
-    return () => window.removeEventListener('resize', handler)
-  }, [])
-  return size
-}
+    const handler = () => setSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return size;
+};
 
 // ─── SHARED COMPONENTS ────────────────────────────────────────────────────────
 function Spinner() {
@@ -105,7 +106,7 @@ function Spinner() {
         animation: 'spin 0.8s linear infinite'
       }} />
     </div>
-  )
+  );
 }
 
 function Btn({ children, onClick, variant='primary', disabled=false, style={}, type='button', small=false }) {
@@ -118,20 +119,20 @@ function Btn({ children, onClick, variant='primary', disabled=false, style={}, t
     display: 'inline-flex', alignItems: 'center', gap: 8,
     whiteSpace: 'nowrap',
     ...style
-  }
+  };
   const variants = {
     primary:  { background: T.accent, color: T.bg, boxShadow: `0 0 20px ${T.accentGlow}` },
     secondary:{ background: 'transparent', color: T.accent, border: `1.5px solid ${T.accent}` },
     ghost:    { background: 'transparent', color: T.textSec, border: `1.5px solid ${T.border}` },
     danger:   { background: T.red, color: '#fff' },
     success:  { background: T.green, color: '#fff' },
-  }
+  };
   return (
     <button type={type} onClick={onClick} disabled={disabled}
       style={{ ...base, ...variants[variant] }}>
       {children}
     </button>
-  )
+  );
 }
 
 function Input({ label, type='text', value, onChange, placeholder, error }) {
@@ -151,7 +152,7 @@ function Input({ label, type='text', value, onChange, placeholder, error }) {
       />
       {error && <span style={{ fontSize: 12, color: T.red }}>{error}</span>}
     </div>
-  )
+  );
 }
 
 function Card({ children, style={}, glow=false, hover=false }) {
@@ -165,7 +166,7 @@ function Card({ children, style={}, glow=false, hover=false }) {
     }} className={hover ? 'card-hover' : ''}>
       {children}
     </div>
-  )
+  );
 }
 
 function Badge({ children, color=T.accent }) {
@@ -179,13 +180,13 @@ function Badge({ children, color=T.accent }) {
     }}>
       {children}
     </span>
-  )
+  );
 }
 
 function Alert({ message, type='error', onClose }) {
-  if (!message) return null
-  const colors = { error: T.red, success: T.green, info: T.accent }
-  const c = colors[type] || T.accent
+  if (!message) return null;
+  const colors = { error: T.red, success: T.green, info: T.accent };
+  const c = colors[type] || T.accent;
   return (
     <div style={{
       background: `${c}18`, border: `1px solid ${c}44`,
@@ -196,12 +197,12 @@ function Alert({ message, type='error', onClose }) {
       <span>{message}</span>
       {onClose && <button onClick={onClose} style={{ background:'none', color: c, fontSize: 16, lineHeight:1 }}>×</button>}
     </div>
-  )
+  );
 }
 
 function RatingStars({ rating, onRate, readonly = false, size = 18 }) {
-  const [hover, setHover] = useState(0)
-  const stars = [1,2,3,4,5]
+  const [hover, setHover] = useState(0);
+  const stars = [1,2,3,4,5];
   return (
     <div style={{ display:'flex', gap: 4 }}>
       {stars.map(star => (
@@ -219,77 +220,74 @@ function RatingStars({ rating, onRate, readonly = false, size = 18 }) {
         >★</span>
       ))}
     </div>
-  )
+  );
 }
 
-// ─── AUTO PROGRESS TRACKER (calculates % from completed modules) ─────────────
+// ─── AUTO PROGRESS TRACKER ──────────────────────────────────────────────────────
 function useAutoProgress(enrollmentId, modules, initialPct) {
-  const [completedModules, setCompletedModules] = useState(new Set())
-  const [progressPct, setProgressPct] = useState(initialPct || 0)
-  const [saving, setSaving] = useState(false)
+  const [completedModules, setCompletedModules] = useState(new Set());
+  const [progressPct, setProgressPct] = useState(initialPct || 0);
+  const [saving, setSaving] = useState(false);
 
-  // Load completed modules from localStorage (persists across sessions)
   useEffect(() => {
-    if (!enrollmentId) return
-    const saved = localStorage.getItem(`progress_${enrollmentId}`)
+    if (!enrollmentId) return;
+    const saved = localStorage.getItem(`progress_${enrollmentId}`);
     if (saved) {
       try {
-        const parsed = JSON.parse(saved)
-        const set = new Set(parsed)
-        setCompletedModules(set)
+        const parsed = JSON.parse(saved);
+        const set = new Set(parsed);
+        setCompletedModules(set);
         if (modules.length > 0) {
-          const pct = Math.round((set.size / modules.length) * 100)
-          setProgressPct(pct)
+          const pct = Math.round((set.size / modules.length) * 100);
+          setProgressPct(pct);
         }
       } catch {}
     }
-  }, [enrollmentId, modules.length])
+  }, [enrollmentId, modules.length]);
 
   const markModuleComplete = useCallback(async (moduleId) => {
-    if (!enrollmentId || completedModules.has(moduleId)) return
-    const newCompleted = new Set([...completedModules, moduleId])
-    setCompletedModules(newCompleted)
+    if (!enrollmentId || completedModules.has(moduleId)) return;
+    const newCompleted = new Set([...completedModules, moduleId]);
+    setCompletedModules(newCompleted);
 
-    const newPct = modules.length > 0 ? Math.round((newCompleted.size / modules.length) * 100) : 0
-    setProgressPct(newPct)
+    const newPct = modules.length > 0 ? Math.round((newCompleted.size / modules.length) * 100) : 0;
+    setProgressPct(newPct);
 
-    // Persist locally
-    localStorage.setItem(`progress_${enrollmentId}`, JSON.stringify([...newCompleted]))
+    localStorage.setItem(`progress_${enrollmentId}`, JSON.stringify([...newCompleted]));
 
-    // Sync to Supabase
-    setSaving(true)
+    setSaving(true);
     try {
       await supabase
         .from('user_progress')
         .update({ progress_pct: newPct, completed: newPct >= 100 })
-        .eq('id', enrollmentId)
+        .eq('id', enrollmentId);
     } catch (e) {
-      console.error('Progress sync error:', e)
+      console.error('Progress sync error:', e);
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }, [enrollmentId, completedModules, modules.length])
+  }, [enrollmentId, completedModules, modules.length]);
 
-  const isModuleCompleted = (moduleId) => completedModules.has(moduleId)
+  const isModuleCompleted = (moduleId) => completedModules.has(moduleId);
 
-  return { progressPct, completedModules, markModuleComplete, isModuleCompleted, saving }
+  return { progressPct, completedModules, markModuleComplete, isModuleCompleted, saving };
 }
 
 // ─── NAVBAR ───────────────────────────────────────────────────────────────────
 function Navbar({ user, onSignOut }) {
-  const location = useLocation()
-  const [menuOpen, setMenuOpen] = useState(false)
-  const { width } = useWindowSize()
-  const isMobile = width <= 768
+  const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { width } = useWindowSize();
+  const isMobile = width <= 768;
 
   const navLinks = user
     ? [
         { to:'/dashboard', label:'Dashboard' },
         { to:'/workshop', label:'Workshop' },
         { to:'/skills', label:'Skills' },
-        { to:'/admin', label:'Manage Skills' }
+        { to:'/admin', label:'Admin' }
       ]
-    : [{ to:'/', label:'Home' }, { to:'/login', label:'Sign In' }]
+    : [{ to:'/', label:'Home' }, { to:'/login', label:'Sign In' }];
 
   return (
     <nav style={{
@@ -310,7 +308,6 @@ function Navbar({ user, onSignOut }) {
           </span>
         </Link>
 
-        {/* Desktop nav */}
         {!isMobile && (
           <div style={{ display:'flex', alignItems:'center', gap: 4 }}>
             {navLinks.map(l => (
@@ -330,7 +327,6 @@ function Navbar({ user, onSignOut }) {
           </div>
         )}
 
-        {/* Mobile hamburger */}
         {isMobile && (
           <button
             onClick={() => setMenuOpen(!menuOpen)}
@@ -341,7 +337,6 @@ function Navbar({ user, onSignOut }) {
         )}
       </div>
 
-      {/* Mobile dropdown menu */}
       {isMobile && menuOpen && (
         <div style={{
           background: T.bgCard, borderTop: `1px solid ${T.border}`,
@@ -371,50 +366,50 @@ function Navbar({ user, onSignOut }) {
         </div>
       )}
     </nav>
-  )
+  );
 }
 
 // ─── LANDING PAGE ─────────────────────────────────────────────────────────────
 function LandingPage() {
-  const navigate = useNavigate()
-  const [topSkills, setTopSkills] = useState([])
-  const [recentReviews, setRecentReviews] = useState([])
-  const [loading, setLoading] = useState(true)
-  const { width } = useWindowSize()
-  const isMobile = width <= 768
+  const navigate = useNavigate();
+  const [topSkills, setTopSkills] = useState([]);
+  const [recentReviews, setRecentReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { width } = useWindowSize();
+  const isMobile = width <= 768;
 
   useEffect(() => {
     const fetchHomeData = async () => {
       try {
-        const { data: reviews } = await supabase.from('reviews').select('skill_id, rating')
-        const ratingMap = {}
+        const { data: reviews } = await supabase.from('reviews').select('skill_id, rating');
+        const ratingMap = {};
         reviews?.forEach(r => {
-          if (!ratingMap[r.skill_id]) ratingMap[r.skill_id] = { sum: 0, count: 0 }
-          ratingMap[r.skill_id].sum += r.rating
-          ratingMap[r.skill_id].count++
-        })
-        const { data: skills } = await supabase.from('skills').select('*')
+          if (!ratingMap[r.skill_id]) ratingMap[r.skill_id] = { sum: 0, count: 0 };
+          ratingMap[r.skill_id].sum += r.rating;
+          ratingMap[r.skill_id].count++;
+        });
+        const { data: skills } = await supabase.from('skills').select('*');
         const skillsWithRating = skills?.map(s => ({
           ...s,
           avgRating: ratingMap[s.id] ? (ratingMap[s.id].sum / ratingMap[s.id].count).toFixed(1) : 0,
           reviewCount: ratingMap[s.id]?.count || 0
-        })) || []
-        skillsWithRating.sort((a, b) => b.avgRating - a.avgRating)
-        setTopSkills(skillsWithRating.slice(0, isMobile ? 3 : 6))
+        })) || [];
+        skillsWithRating.sort((a, b) => b.avgRating - a.avgRating);
+        setTopSkills(skillsWithRating.slice(0, isMobile ? 3 : 6));
         const { data: latestReviews } = await supabase
           .from('reviews')
           .select('*, users(email), skills(title)')
           .order('created_at', { ascending: false })
-          .limit(3)
-        setRecentReviews(latestReviews || [])
+          .limit(3);
+        setRecentReviews(latestReviews || []);
       } catch (err) {
-        console.error('Error fetching home data:', err)
+        console.error('Error fetching home data:', err);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-    fetchHomeData()
-  }, [isMobile])
+    };
+    fetchHomeData();
+  }, [isMobile]);
 
   const features = [
     { icon:'🎯', title:'Easy Skill Discovery', desc:'Quickly find skills that match your interests and goals.' },
@@ -425,18 +420,17 @@ function LandingPage() {
     { icon:'🚀', title:'Admin Dashboard', desc:'Create and manage your own skills with ease.' },
     { icon:'🔄', title:'Real-Time Updates', desc:'Content changes reflect instantly across the platform.' },
     { icon:'🌱', title:'Growing Library', desc:'New skills added as the platform expands.' },
-  ]
+  ];
 
   const stats = [
     { value: '200+', label: 'Skills Available' },
     { value: '50K+', label: 'Active Learners' },
     { value: '98%', label: 'Satisfaction Rate' },
     { value: '24/7', label: 'Platform Uptime' },
-  ]
+  ];
 
   return (
     <div style={{ fontFamily: T.fontBody }}>
-      {/* Hero */}
       <section style={{
         minHeight: isMobile ? '80vh' : '90vh',
         display:'flex', flexDirection:'column',
@@ -473,7 +467,6 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* Stats */}
       <section style={{ padding: '32px 16px', borderTop:`1px solid ${T.border}`, borderBottom:`1px solid ${T.border}` }}>
         <div style={{
           maxWidth: 900, margin:'0 auto',
@@ -491,7 +484,6 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* Top Courses */}
       <section style={{ padding: isMobile ? '48px 16px' : '80px 24px', background: T.bgMid }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 36 }}>
@@ -525,7 +517,6 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* Features */}
       <section style={{ padding: isMobile ? '48px 16px' : '80px 24px' }}>
         <div style={{ maxWidth: 1100, margin:'0 auto' }}>
           <div style={{ textAlign:'center', marginBottom: 48 }}>
@@ -545,7 +536,6 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* CTA */}
       <section style={{ padding: isMobile ? '48px 16px' : '80px 24px', textAlign:'center' }}>
         <Card style={{ maxWidth: 600, margin:'0 auto', padding: isMobile ? '32px 20px' : '48px 32px', background:`linear-gradient(135deg, ${T.bgCard}, ${T.bgMid})` }} glow>
           <h2 style={{ fontFamily: T.fontHead, fontWeight: 700, fontSize: isMobile ? 24 : 30, letterSpacing:'-0.03em', marginBottom: 16 }}>
@@ -566,7 +556,7 @@ function LandingPage() {
         </p>
       </footer>
     </div>
-  )
+  );
 }
 
 // ─── AUTH PAGES ───────────────────────────────────────────────────────────────
@@ -590,26 +580,26 @@ function AuthLayout({ children, title, subtitle }) {
         <Card glow>{children}</Card>
       </div>
     </div>
-  )
+  );
 }
 
 function LoginPage() {
-  const { signIn } = useAuth()
-  const navigate = useNavigate()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const { signIn } = useAuth();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async () => {
-    setError('')
-    if (!email || !password) { setError('Please fill in all fields.'); return }
-    setLoading(true)
-    const { error: err } = await signIn(email, password)
-    setLoading(false)
-    if (err) { setError(err.message); return }
-    navigate('/dashboard')
-  }
+    setError('');
+    if (!email || !password) { setError('Please fill in all fields.'); return; }
+    setLoading(true);
+    const { error: err } = await signIn(email, password);
+    setLoading(false);
+    if (err) { setError(err.message); return; }
+    navigate('/dashboard');
+  };
 
   return (
     <AuthLayout title="Welcome back" subtitle="Sign in to your Skillery Pro account">
@@ -626,29 +616,29 @@ function LoginPage() {
         </p>
       </div>
     </AuthLayout>
-  )
+  );
 }
 
 function SignupPage() {
-  const { signUp } = useAuth()
-  const navigate = useNavigate()
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState(false)
+  const { signUp } = useAuth();
+  const navigate = useNavigate();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async () => {
-    setError('')
-    if (!name || !email || !password) { setError('Please fill in all fields.'); return }
-    if (password.length < 6) { setError('Password must be at least 6 characters.'); return }
-    setLoading(true)
-    const { error: err } = await signUp(email, password, name)
-    setLoading(false)
-    if (err) { setError(err.message); return }
-    setSuccess(true)
-  }
+    setError('');
+    if (!name || !email || !password) { setError('Please fill in all fields.'); return; }
+    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+    setLoading(true);
+    const { error: err } = await signUp(email, password, name);
+    setLoading(false);
+    if (err) { setError(err.message); return; }
+    setSuccess(true);
+  };
 
   if (success) return (
     <AuthLayout title="Check your email" subtitle="We sent you a confirmation link">
@@ -660,7 +650,7 @@ function SignupPage() {
         <Btn onClick={() => navigate('/login')} style={{ width:'100%', justifyContent:'center' }}>Go to Login</Btn>
       </div>
     </AuthLayout>
-  )
+  );
 
   return (
     <AuthLayout title="Create your account" subtitle="Start your learning journey today">
@@ -678,17 +668,17 @@ function SignupPage() {
         </p>
       </div>
     </AuthLayout>
-  )
+  );
 }
 
-// ─── DASHBOARD ────────────────────────────────────────────────────────────────
+// ─── DASHBOARD (USER) ────────────────────────────────────────────────────────
 function DashboardPage({ user }) {
-  const [skills, setSkills] = useState([])
-  const [progress, setProgress] = useState([])
-  const [reviews, setReviews] = useState([])
-  const [loading, setLoading] = useState(true)
-  const { width } = useWindowSize()
-  const isMobile = width <= 768
+  const [skills, setSkills] = useState([]);
+  const [progress, setProgress] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { width } = useWindowSize();
+  const isMobile = width <= 768;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -696,25 +686,25 @@ function DashboardPage({ user }) {
         supabase.from('skills').select('*').limit(8).order('created_at', { ascending: false }),
         supabase.from('user_progress').select('*, skills(title, id)').eq('user_id', user.id),
         supabase.from('reviews').select('*, skills(title)').eq('user_id', user.id).order('created_at', { ascending: false }).limit(3)
-      ])
-      setSkills(s || [])
-      setProgress(p || [])
-      setReviews(r || [])
-      setLoading(false)
-    }
-    fetchData()
-  }, [user.id])
+      ]);
+      setSkills(s || []);
+      setProgress(p || []);
+      setReviews(r || []);
+      setLoading(false);
+    };
+    fetchData();
+  }, [user.id]);
 
-  const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Learner'
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
+  const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Learner';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
-  const totalProgress = progress.length
-  const completed = progress.filter(p => p.completed).length
-  const inProgress = totalProgress - completed
-  const avgProgress = totalProgress ? Math.round(progress.reduce((acc, p) => acc + (p.progress_pct || 0), 0) / totalProgress) : 0
+  const totalProgress = progress.length;
+  const completed = progress.filter(p => p.completed).length;
+  const inProgress = totalProgress - completed;
+  const avgProgress = totalProgress ? Math.round(progress.reduce((acc, p) => acc + (p.progress_pct || 0), 0) / totalProgress) : 0;
 
-  if (loading) return <Spinner />
+  if (loading) return <Spinner />;
 
   return (
     <div style={{ maxWidth:1100, margin:'0 auto', padding: isMobile ? '24px 16px' : '40px 24px' }}>
@@ -802,117 +792,115 @@ function DashboardPage({ user }) {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // ─── SKILL DETAIL PAGE (auto progress on module open) ────────────────────────
 function SkillDetailPage({ user }) {
-  const { skillId } = useParams()
-  const [skill, setSkill] = useState(null)
-  const [modules, setModules] = useState([])
-  const [reviews, setReviews] = useState([])
-  const [avgRating, setAvgRating] = useState(0)
-  const [userRating, setUserRating] = useState(null)
-  const [userComment, setUserComment] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [message, setMessage] = useState('')
-  const [enrolled, setEnrolled] = useState(false)
-  const [enrollmentId, setEnrollmentId] = useState(null)
-  const { width } = useWindowSize()
-  const isMobile = width <= 768
+  const { skillId } = useParams();
+  const [skill, setSkill] = useState(null);
+  const [modules, setModules] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [avgRating, setAvgRating] = useState(0);
+  const [userRating, setUserRating] = useState(null);
+  const [userComment, setUserComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState('');
+  const [enrolled, setEnrolled] = useState(false);
+  const [enrollmentId, setEnrollmentId] = useState(null);
+  const { width } = useWindowSize();
+  const isMobile = width <= 768;
 
-  // Auto-progress: track which modules the user has opened
   const { progressPct, markModuleComplete, isModuleCompleted } = useAutoProgress(
     enrollmentId,
     modules,
     0
-  )
+  );
 
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(true)
-      const { data: skillData } = await supabase.from('skills').select('*').eq('id', skillId).single()
-      setSkill(skillData)
+      setLoading(true);
+      const { data: skillData } = await supabase.from('skills').select('*').eq('id', skillId).single();
+      setSkill(skillData);
 
       const { data: modulesData } = await supabase
         .from('skill_modules')
         .select('*')
         .eq('skill_id', skillId)
-        .order('order_index', { ascending: true })
-      setModules(modulesData || [])
+        .order('order_index', { ascending: true });
+      setModules(modulesData || []);
 
-      const { data: reviewsData } = await supabase.from('reviews').select('*, users(email)').eq('skill_id', skillId).order('created_at', { ascending: false })
-      setReviews(reviewsData || [])
-      const avg = reviewsData?.length ? (reviewsData.reduce((sum, r) => sum + r.rating, 0) / reviewsData.length).toFixed(1) : 0
-      setAvgRating(avg)
+      const { data: reviewsData } = await supabase.from('reviews').select('*, users(email)').eq('skill_id', skillId).order('created_at', { ascending: false });
+      setReviews(reviewsData || []);
+      const avg = reviewsData?.length ? (reviewsData.reduce((sum, r) => sum + r.rating, 0) / reviewsData.length).toFixed(1) : 0;
+      setAvgRating(avg);
 
       if (user) {
-        const { data: prog } = await supabase.from('user_progress').select('*').eq('user_id', user.id).eq('skill_id', skillId).maybeSingle()
-        setEnrolled(!!prog)
-        if (prog) setEnrollmentId(prog.id)
+        const { data: prog } = await supabase.from('user_progress').select('*').eq('user_id', user.id).eq('skill_id', skillId).maybeSingle();
+        setEnrolled(!!prog);
+        if (prog) setEnrollmentId(prog.id);
 
-        const { data: myReview } = await supabase.from('reviews').select('*').eq('user_id', user.id).eq('skill_id', skillId).maybeSingle()
+        const { data: myReview } = await supabase.from('reviews').select('*').eq('user_id', user.id).eq('skill_id', skillId).maybeSingle();
         if (myReview) {
-          setUserRating(myReview.rating)
-          setUserComment(myReview.comment || '')
+          setUserRating(myReview.rating);
+          setUserComment(myReview.comment || '');
         }
       }
-      setLoading(false)
-    }
-    fetchData()
-  }, [skillId, user])
+      setLoading(false);
+    };
+    fetchData();
+  }, [skillId, user]);
 
   const enroll = async () => {
     const { data, error } = await supabase
       .from('user_progress')
       .upsert({ user_id: user.id, skill_id: skillId, progress_pct: 0, completed: false })
       .select()
-      .single()
+      .single();
     if (!error && data) {
-      setEnrolled(true)
-      setEnrollmentId(data.id)
+      setEnrolled(true);
+      setEnrollmentId(data.id);
     } else {
-      setMessage('Enrollment failed')
+      setMessage('Enrollment failed');
     }
-  }
+  };
 
-  // When a module is clicked — mark it complete & auto-update progress
   const handleModuleOpen = async (module) => {
-    window.open(module.content_url, '_blank', 'noopener,noreferrer')
+    window.open(module.content_url, '_blank', 'noopener,noreferrer');
     if (enrolled && enrollmentId) {
-      await markModuleComplete(module.id)
+      await markModuleComplete(module.id);
     }
-  }
+  };
 
   const submitReview = async () => {
-    if (!userRating) { setMessage('Please select a rating'); return }
-    setSubmitting(true)
+    if (!userRating) { setMessage('Please select a rating'); return; }
+    setSubmitting(true);
     const { error } = await supabase.from('reviews').upsert({
       user_id: user.id,
       skill_id: skillId,
       rating: userRating,
       comment: userComment,
-    }, { onConflict: 'user_id, skill_id' })
+    }, { onConflict: 'user_id, skill_id' });
     if (!error) {
-      setMessage('Review saved!')
-      const { data } = await supabase.from('reviews').select('*, users(email)').eq('skill_id', skillId).order('created_at', { ascending: false })
-      setReviews(data || [])
-    } else setMessage('Error saving review')
-    setSubmitting(false)
-    setTimeout(() => setMessage(''), 3000)
-  }
+      setMessage('Review saved!');
+      const { data } = await supabase.from('reviews').select('*, users(email)').eq('skill_id', skillId).order('created_at', { ascending: false });
+      setReviews(data || []);
+    } else setMessage('Error saving review');
+    setSubmitting(false);
+    setTimeout(() => setMessage(''), 3000);
+  };
 
   const getMediaIcon = (type) => {
     switch(type) {
-      case 'video': return '🎥'
-      case 'audio': return '🎧'
-      default: return '📄'
+      case 'video': return '🎥';
+      case 'audio': return '🎧';
+      default: return '📄';
     }
-  }
+  };
 
-  if (loading) return <Spinner />
-  if (!skill) return <div style={{ padding: 40, textAlign:'center' }}>Skill not found.</div>
+  if (loading) return <Spinner />;
+  if (!skill) return <div style={{ padding: 40, textAlign:'center' }}>Skill not found.</div>;
 
   return (
     <div style={{ maxWidth: 1000, margin:'0 auto', padding: isMobile ? '20px 16px' : '40px 24px' }}>
@@ -962,7 +950,6 @@ function SkillDetailPage({ user }) {
         </div>
       </Card>
 
-      {/* Modules — clicking auto-tracks progress */}
       {modules.length > 0 && (
         <Card style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -975,7 +962,7 @@ function SkillDetailPage({ user }) {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {modules.map((mod, idx) => {
-              const done = enrolled && isModuleCompleted(mod.id)
+              const done = enrolled && isModuleCompleted(mod.id);
               return (
                 <div
                   key={mod.id}
@@ -1006,7 +993,7 @@ function SkillDetailPage({ user }) {
                     {done ? 'Done ✓' : 'Open →'}
                   </div>
                 </div>
-              )
+              );
             })}
           </div>
           {enrolled && (
@@ -1017,7 +1004,6 @@ function SkillDetailPage({ user }) {
         </Card>
       )}
 
-      {/* Reviews */}
       <Card>
         <h2 style={{ fontFamily: T.fontHead, fontSize: isMobile ? 17 : 20, marginBottom: 16 }}>Reviews</h2>
         {user && (
@@ -1051,60 +1037,60 @@ function SkillDetailPage({ user }) {
         )}
       </Card>
     </div>
-  )
+  );
 }
 
 // ─── SKILLS BROWSER ───────────────────────────────────────────────────────────
 function SkillsPage({ user }) {
-  const [skills, setSkills] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [category, setCategory] = useState('All')
-  const [enrolling, setEnrolling] = useState(null)
-  const [msg, setMsg] = useState(null)
-  const [ratings, setRatings] = useState({})
-  const { width } = useWindowSize()
-  const isMobile = width <= 768
+  const [skills, setSkills] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('All');
+  const [enrolling, setEnrolling] = useState(null);
+  const [msg, setMsg] = useState(null);
+  const [ratings, setRatings] = useState({});
+  const { width } = useWindowSize();
+  const isMobile = width <= 768;
 
   useEffect(() => {
     supabase.from('skills').select('*').order('created_at', { ascending: false })
       .then(async ({ data }) => {
-        setSkills(data || [])
-        const { data: reviews } = await supabase.from('reviews').select('skill_id, rating')
+        setSkills(data || []);
+        const { data: reviews } = await supabase.from('reviews').select('skill_id, rating');
         if (reviews) {
-          const avgMap = {}
+          const avgMap = {};
           reviews.forEach(r => {
-            if (!avgMap[r.skill_id]) avgMap[r.skill_id] = { sum: 0, count: 0 }
-            avgMap[r.skill_id].sum += r.rating
-            avgMap[r.skill_id].count++
-          })
-          const avgRatings = {}
+            if (!avgMap[r.skill_id]) avgMap[r.skill_id] = { sum: 0, count: 0 };
+            avgMap[r.skill_id].sum += r.rating;
+            avgMap[r.skill_id].count++;
+          });
+          const avgRatings = {};
           Object.entries(avgMap).forEach(([id, { sum, count }]) => {
-            avgRatings[id] = (sum / count).toFixed(1)
-          })
-          setRatings(avgRatings)
+            avgRatings[id] = (sum / count).toFixed(1);
+          });
+          setRatings(avgRatings);
         }
-        setLoading(false)
-      })
-  }, [])
+        setLoading(false);
+      });
+  }, []);
 
-  const categories = ['All', ...new Set(skills.map(s => s.category).filter(Boolean))]
+  const categories = ['All', ...new Set(skills.map(s => s.category).filter(Boolean))];
 
   const filtered = skills.filter(s => {
-    const matchSearch = s.title?.toLowerCase().includes(search.toLowerCase()) || s.description?.toLowerCase().includes(search.toLowerCase())
-    const matchCat = category === 'All' || s.category === category
-    return matchSearch && matchCat
-  })
+    const matchSearch = s.title?.toLowerCase().includes(search.toLowerCase()) || s.description?.toLowerCase().includes(search.toLowerCase());
+    const matchCat = category === 'All' || s.category === category;
+    return matchSearch && matchCat;
+  });
 
   const enroll = async (skillId) => {
-    setEnrolling(skillId)
-    const { error } = await supabase.from('user_progress').upsert({ user_id: user.id, skill_id: skillId, progress_pct: 0, completed: false })
-    setEnrolling(null)
-    setMsg(error ? { type:'error', text: error.message } : { type:'success', text:'Enrolled! Head to Workshop to start.' })
-    setTimeout(() => setMsg(null), 3000)
-  }
+    setEnrolling(skillId);
+    const { error } = await supabase.from('user_progress').upsert({ user_id: user.id, skill_id: skillId, progress_pct: 0, completed: false });
+    setEnrolling(null);
+    setMsg(error ? { type:'error', text: error.message } : { type:'success', text:'Enrolled! Head to Workshop to start.' });
+    setTimeout(() => setMsg(null), 3000);
+  };
 
-  if (loading) return <Spinner />
+  if (loading) return <Spinner />;
 
   return (
     <div style={{ maxWidth:1100, margin:'0 auto', padding: isMobile ? '20px 16px' : '40px 24px' }}>
@@ -1162,395 +1148,74 @@ function SkillsPage({ user }) {
         ))}
       </div>
     </div>
-  )
-}
-
-// ─── ADMIN PANEL ─────────────────────────────────────────────────────────────
-function AdminPage({ user }) {
-  const [tab, setTab] = useState('skills')
-  const [skills, setSkills] = useState([])
-  const [selectedSkill, setSelectedSkill] = useState(null)
-  const [modules, setModules] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ title:'', description:'', category:'', level:'Beginner', duration:'' })
-  const [editingId, setEditingId] = useState(null)
-  const [saving, setSaving] = useState(false)
-  const [msg, setMsg] = useState(null)
-  const [deleting, setDeleting] = useState(null)
-  const [moduleForm, setModuleForm] = useState({ title: '', description: '', content_type: 'video', content_url: '', order_index: 0, uploadMethod: 'url', file: null, uploading: false })
-  const [editingModuleId, setEditingModuleId] = useState(null)
-  const [savingModule, setSavingModule] = useState(false)
-  const [stats, setStats] = useState({ totalSkills: 0, totalUsers: 0, totalEnrollments: 0, totalReviews: 0, recentSkills: [], recentEnrollments: [] })
-  const [statsLoading, setStatsLoading] = useState(true)
-  const { width } = useWindowSize()
-  const isMobile = width <= 768
-
-  const fetchSkills = useCallback(async () => {
-    let query = supabase.from('skills').select('*').order('created_at', { ascending: false })
-    if (user?.email !== 'admin@example.com') query = query.eq('created_by', user.id)
-    const { data } = await query
-    setSkills(data || [])
-  }, [user])
-
-  const fetchModules = useCallback(async (skillId) => {
-    if (!skillId) return
-    const { data } = await supabase.from('skill_modules').select('*').eq('skill_id', skillId).order('order_index', { ascending: true })
-    setModules(data || [])
-  }, [])
-
-  const fetchStats = useCallback(async () => {
-    try {
-      const [
-        { count: totalSkills }, { count: totalUsers }, { count: totalEnrollments }, { count: totalReviews },
-        { data: recentSkillsData }, { data: recentEnrollmentsData }
-      ] = await Promise.all([
-        supabase.from('skills').select('*', { count: 'exact', head: true }),
-        supabase.from('users').select('*', { count: 'exact', head: true }),
-        supabase.from('user_progress').select('*', { count: 'exact', head: true }),
-        supabase.from('reviews').select('*', { count: 'exact', head: true }),
-        supabase.from('skills').select('title, created_at').order('created_at', { ascending: false }).limit(5),
-        supabase.from('user_progress').select('skills(title), created_at').order('created_at', { ascending: false }).limit(5)
-      ])
-      setStats({ totalSkills: totalSkills || 0, totalUsers: totalUsers || 0, totalEnrollments: totalEnrollments || 0, totalReviews: totalReviews || 0, recentSkills: recentSkillsData || [], recentEnrollments: recentEnrollmentsData || [] })
-    } catch (err) { console.error('Error fetching stats:', err) }
-    finally { setStatsLoading(false) }
-  }, [])
-
-  useEffect(() => { fetchSkills().then(() => setLoading(false)); fetchStats() }, [fetchSkills, fetchStats])
-  useEffect(() => { if (selectedSkill) fetchModules(selectedSkill.id); else setModules([]) }, [selectedSkill, fetchModules])
-
-  const saveSkill = async () => {
-    if (!form.title) { setMsg({ type:'error', text:'Title is required.' }); return }
-    setSaving(true)
-    let error
-    if (editingId) { ({ error } = await supabase.from('skills').update(form).eq('id', editingId)) }
-    else { ({ error } = await supabase.from('skills').insert([form])) }
-    setSaving(false)
-    if (error) { setMsg({ type:'error', text: error.message }); return }
-    setMsg({ type:'success', text: editingId ? 'Skill updated!' : 'Skill added!' })
-    setForm({ title:'', description:'', category:'', level:'Beginner', duration:'' })
-    setEditingId(null)
-    fetchSkills(); fetchStats()
-    setTimeout(() => setMsg(null), 3000)
-  }
-
-  const deleteSkill = async (id) => {
-    setDeleting(id)
-    await supabase.from('skills').delete().eq('id', id)
-    setDeleting(null)
-    fetchSkills(); fetchStats()
-    if (selectedSkill?.id === id) setSelectedSkill(null)
-  }
-
-  const editSkill = (skill) => {
-    setForm({ title: skill.title, description: skill.description || '', category: skill.category || '', level: skill.level || 'Beginner', duration: skill.duration || '' })
-    setEditingId(skill.id)
-    setTab('add')
-  }
-
-  const uploadFile = async (file, skillId) => {
-    const fileExt = file.name.split('.').pop()
-    const fileName = `${skillId}/${Date.now()}.${fileExt}`
-    const { error } = await supabase.storage.from('skill-modules').upload(fileName, file, { cacheControl: '3600', upsert: false })
-    if (error) throw error
-    const { data: { publicUrl } } = supabase.storage.from('skill-modules').getPublicUrl(fileName)
-    return publicUrl
-  }
-
-  const saveModule = async () => {
-    if (!moduleForm.title) { setMsg({ type:'error', text:'Title is required.' }); return }
-    if (moduleForm.uploadMethod === 'file') {
-      if (!moduleForm.file) { setMsg({ type:'error', text:'Please select a file.' }); return }
-      if (moduleForm.file.size > 500 * 1024) { setMsg({ type:'error', text:'File size exceeds 500KB.' }); return }
-    } else {
-      if (!moduleForm.content_url) { setMsg({ type:'error', text:'URL is required.' }); return }
-    }
-    setSavingModule(true)
-    let finalUrl = moduleForm.content_url
-    try {
-      if (moduleForm.uploadMethod === 'file') finalUrl = await uploadFile(moduleForm.file, selectedSkill.id)
-      const payload = { title: moduleForm.title, description: moduleForm.description, content_type: moduleForm.content_type, content_url: finalUrl, order_index: moduleForm.order_index, skill_id: selectedSkill.id }
-      let error
-      if (editingModuleId) { ({ error } = await supabase.from('skill_modules').update(payload).eq('id', editingModuleId)) }
-      else { ({ error } = await supabase.from('skill_modules').insert([payload])) }
-      if (error) throw error
-      setMsg({ type:'success', text: editingModuleId ? 'Module updated!' : 'Module added!' })
-      setModuleForm({ title: '', description: '', content_type: 'video', content_url: '', order_index: 0, uploadMethod: 'url', file: null, uploading: false })
-      setEditingModuleId(null)
-      fetchModules(selectedSkill.id)
-    } catch (err) { setMsg({ type:'error', text: err.message }) }
-    finally { setSavingModule(false); setTimeout(() => setMsg(null), 3000) }
-  }
-
-  const deleteModule = async (id) => { await supabase.from('skill_modules').delete().eq('id', id); fetchModules(selectedSkill.id) }
-  const editModule = (mod) => { setModuleForm({ title: mod.title, description: mod.description || '', content_type: mod.content_type, content_url: mod.content_url, order_index: mod.order_index, uploadMethod: 'url', file: null, uploading: false }); setEditingModuleId(mod.id) }
-
-  if (loading || statsLoading) return <Spinner />
-  if (!user) return <Navigate to="/login" replace />
-
-  return (
-    <div style={{ maxWidth:1100, margin:'0 auto', padding: isMobile ? '20px 16px' : '40px 24px' }}>
-      <div style={{ marginBottom: 24, display:'flex', alignItems:'center', gap:12, flexWrap: 'wrap' }}>
-        <div>
-          <h1 style={{ fontFamily:T.fontHead, fontWeight:700, fontSize: isMobile ? 22 : 28, letterSpacing:'-0.03em' }}>Admin Dashboard</h1>
-          <p style={{ color:T.textSec, marginTop:4, fontSize: 13 }}>Overview and management of your skills.</p>
-        </div>
-        <Badge color={T.gold}>Dashboard</Badge>
-      </div>
-
-      {/* Stats */}
-      <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
-        {[
-          { icon:'📚', val: stats.totalSkills, label:'Total Skills' },
-          { icon:'👥', val: stats.totalUsers, label:'Total Users' },
-          { icon:'📖', val: stats.totalEnrollments, label:'Enrollments' },
-          { icon:'⭐', val: stats.totalReviews, label:'Reviews' },
-        ].map(s => (
-          <Card key={s.label} style={{ textAlign:'center', padding:'16px' }}>
-            <div style={{ fontSize: 22, marginBottom: 6 }}>{s.icon}</div>
-            <div style={{ fontSize: 26, fontWeight: 700, color: T.accent }}>{s.val}</div>
-            <div style={{ color: T.textSec, fontSize: 12 }}>{s.label}</div>
-          </Card>
-        ))}
-      </div>
-
-      {/* Recent Activity */}
-      <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20, marginBottom: 24 }}>
-        <Card>
-          <h2 style={{ fontFamily:T.fontHead, fontSize:16, marginBottom:14 }}>📅 Recent Skills</h2>
-          {stats.recentSkills.length === 0 ? <p style={{ color:T.textSec, fontSize:13 }}>No skills yet.</p> : (
-            <ul style={{ listStyle:'none', padding:0 }}>
-              {stats.recentSkills.map(s => (
-                <li key={s.created_at} style={{ padding:'7px 0', borderBottom:`1px solid ${T.border}`, fontSize: 13 }}>
-                  {s.title}
-                  <span style={{ fontSize:11, color:T.textMut, marginLeft:8 }}>{new Date(s.created_at).toLocaleDateString()}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-        <Card>
-          <h2 style={{ fontFamily:T.fontHead, fontSize:16, marginBottom:14 }}>🔄 Recent Enrollments</h2>
-          {stats.recentEnrollments.length === 0 ? <p style={{ color:T.textSec, fontSize:13 }}>No enrollments yet.</p> : (
-            <ul style={{ listStyle:'none', padding:0 }}>
-              {stats.recentEnrollments.map(e => (
-                <li key={e.created_at} style={{ padding:'7px 0', borderBottom:`1px solid ${T.border}`, fontSize: 13 }}>
-                  {e.skills?.title || 'Unknown skill'}
-                  <span style={{ fontSize:11, color:T.textMut, marginLeft:8 }}>{new Date(e.created_at).toLocaleDateString()}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </div>
-
-      {/* Tabs */}
-      <div className="nav-scroll" style={{ display:'flex', gap:4, marginBottom:20, borderBottom:`1px solid ${T.border}`, paddingBottom:0, overflowX: 'auto' }}>
-        {['skills', 'add', 'modules'].map(t => (
-          <button key={t} onClick={() => { setTab(t); if (t === 'add') { setEditingId(null); setForm({ title:'', description:'', category:'', level:'Beginner', duration:'' }) } }} style={{
-            fontFamily:T.fontHead, fontSize: isMobile ? 12 : 13, fontWeight:600,
-            padding: isMobile ? '8px 14px' : '10px 20px',
-            borderRadius:`${T.radiusSm} ${T.radiusSm} 0 0`,
-            background: tab === t ? T.bgCard : 'transparent',
-            color: tab === t ? T.accent : T.textSec,
-            border: tab === t ? `1px solid ${T.border}` : '1px solid transparent',
-            borderBottom: tab === t ? `1px solid ${T.bgCard}` : 'none',
-            marginBottom: -1, cursor:'pointer', whiteSpace: 'nowrap'
-          }}>{t === 'skills' ? '📚 Skills' : t === 'add' ? (editingId ? '✏️ Edit' : '➕ Add') : '📦 Modules'}</button>
-        ))}
-      </div>
-
-      {msg && <div style={{ marginBottom:14 }}><Alert message={msg.text} type={msg.type} onClose={() => setMsg(null)} /></div>}
-
-      {tab === 'skills' && (
-        <Card>
-          <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:15, marginBottom:16 }}>Your Skills ({skills.length})</h2>
-          {skills.length === 0 ? <p style={{ color: T.textSec, fontSize: 13 }}>No skills yet. Click "Add" to create your first skill.</p> : (
-            <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
-              {skills.map(s => (
-                <div key={s.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 0', borderBottom:`1px solid ${T.border}`, flexWrap: isMobile ? 'wrap' : 'nowrap', gap: 8 }}>
-                  <div style={{ flex:1, minWidth: 0 }}>
-                    <div style={{ fontWeight:500, fontSize:13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</div>
-                    <div style={{ color:T.textSec, fontSize:11 }}>{s.category} · {s.level}</div>
-                  </div>
-                  <div style={{ display:'flex', gap:6, flexShrink: 0 }}>
-                    <Btn small variant="secondary" onClick={() => { editSkill(s); setTab('add'); }}>Edit</Btn>
-                    <Btn small variant="secondary" onClick={() => { setSelectedSkill(s); setTab('modules'); }}>Mods</Btn>
-                    <Btn small variant="danger" onClick={() => deleteSkill(s.id)} disabled={deleting === s.id}>
-                      {deleting === s.id ? '…' : 'Del'}
-                    </Btn>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      )}
-
-      {tab === 'add' && (
-        <Card style={{ maxWidth: 560 }}>
-          <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:17, marginBottom:20 }}>{editingId ? 'Edit Skill' : 'Add New Skill'}</h2>
-          <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-            <Input label="Skill Title *" value={form.title} onChange={e => setForm({...form, title:e.target.value})} placeholder="e.g. JavaScript Fundamentals" />
-            <div>
-              <label style={{ fontFamily:T.fontHead, fontSize:13, color:T.textSec, display:'block', marginBottom:6 }}>Description</label>
-              <textarea value={form.description} onChange={e => setForm({...form, description:e.target.value})} rows={3} style={{ width:'100%', background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:T.radiusSm, padding:'10px', color:T.textPri, fontSize:14 }} />
-            </div>
-            <Input label="Category" value={form.category} onChange={e => setForm({...form, category:e.target.value})} placeholder="Programming, Design, etc" />
-            <select value={form.level} onChange={e => setForm({...form, level:e.target.value})} style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:T.radiusSm, padding:'12px', color:T.textPri, fontSize:14 }}>
-              <option>Beginner</option><option>Intermediate</option><option>Advanced</option>
-            </select>
-            <Input label="Duration" value={form.duration} onChange={e => setForm({...form, duration:e.target.value})} placeholder="e.g. 4 hours" />
-            <Btn onClick={saveSkill} disabled={saving} style={{ justifyContent:'center' }}>
-              {saving ? 'Saving…' : (editingId ? 'Update Skill' : '+ Add Skill')}
-            </Btn>
-          </div>
-        </Card>
-      )}
-
-      {tab === 'modules' && (
-        <div>
-          {!selectedSkill ? (
-            <Card><p style={{ color: T.textSec, fontSize: 14 }}>Select a skill from the Skills tab, then click "Mods" to manage modules.</p></Card>
-          ) : (
-            <>
-              <Card style={{ marginBottom: 20 }}>
-                <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:17, marginBottom:14 }}>Modules for: {selectedSkill.title}</h2>
-                <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 10, marginBottom: 12 }}>
-                  <Input label="Title" value={moduleForm.title} onChange={e => setModuleForm({...moduleForm, title:e.target.value})} placeholder="Introduction" />
-                  <select value={moduleForm.content_type} onChange={e => setModuleForm({...moduleForm, content_type:e.target.value})} style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:T.radiusSm, padding:'12px', color:T.textPri }}>
-                    <option value="video">🎥 Video</option>
-                    <option value="document">📄 Document</option>
-                    <option value="audio">🎧 Audio</option>
-                  </select>
-                </div>
-                <div style={{ marginBottom: 10 }}>
-                  <label style={{ fontFamily: T.fontHead, fontSize: 13, color: T.textSec, display: 'block', marginBottom: 8 }}>Content Source</label>
-                  <div style={{ display:'flex', gap: 16, flexWrap: 'wrap' }}>
-                    {['url', 'file'].map(method => (
-                      <label key={method} style={{ display:'flex', alignItems:'center', gap: 6, cursor:'pointer', fontSize: 13 }}>
-                        <input type="radio" name="uploadMethod" value={method} checked={moduleForm.uploadMethod === method} onChange={() => setModuleForm({...moduleForm, uploadMethod: method, file: null, content_url: ''})} />
-                        {method === 'url' ? 'URL / Embed Link' : 'Upload File (max 500KB)'}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                {moduleForm.uploadMethod === 'url' ? (
-                  <div style={{ marginBottom: 10 }}>
-                    <Input label="URL" value={moduleForm.content_url} onChange={e => setModuleForm({...moduleForm, content_url:e.target.value})} placeholder="https://..." />
-                  </div>
-                ) : (
-                  <div style={{ marginBottom: 10 }}>
-                    <label style={{ fontFamily: T.fontHead, fontSize: 13, color: T.textSec, display: 'block', marginBottom: 6 }}>Upload File</label>
-                    <input type="file" accept="video/*,audio/*,application/pdf,image/*"
-                      onChange={e => { const file = e.target.files[0]; if (file) { if (file.size > 500 * 1024) { setMsg({ type:'error', text:'File exceeds 500KB.' }); e.target.value = '' } else { setModuleForm({...moduleForm, file}) } } }}
-                      style={{ background: T.bgCard, border: `1.5px solid ${T.border}`, borderRadius: T.radiusSm, padding: '10px 12px', color: T.textPri, width: '100%', fontSize: 13 }}
-                    />
-                    {moduleForm.file && <div style={{ fontSize: 12, color: T.textSec, marginTop: 4 }}>{moduleForm.file.name} ({(moduleForm.file.size / 1024).toFixed(1)} KB)</div>}
-                  </div>
-                )}
-                <div style={{ marginBottom: 10 }}><Input label="Description (optional)" value={moduleForm.description} onChange={e => setModuleForm({...moduleForm, description:e.target.value})} placeholder="Brief description" /></div>
-                <div style={{ marginBottom: 14 }}><Input label="Order Index" type="number" value={moduleForm.order_index} onChange={e => setModuleForm({...moduleForm, order_index: parseInt(e.target.value) || 0})} placeholder="0" /></div>
-                <div style={{ display:'flex', gap:10, flexWrap: 'wrap' }}>
-                  <Btn onClick={saveModule} disabled={savingModule}>{savingModule ? 'Saving…' : (editingModuleId ? 'Update Module' : '+ Add Module')}</Btn>
-                  {editingModuleId && (
-                    <Btn variant="ghost" onClick={() => { setEditingModuleId(null); setModuleForm({ title: '', description: '', content_type: 'video', content_url: '', order_index: 0, uploadMethod: 'url', file: null, uploading: false }) }}>Cancel</Btn>
-                  )}
-                </div>
-              </Card>
-              <Card>
-                <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:15, marginBottom:16 }}>Existing Modules ({modules.length})</h2>
-                {modules.length === 0 ? <p style={{ color: T.textSec, fontSize: 13 }}>No modules yet.</p> : (
-                  <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                    {modules.map(mod => (
-                      <div key={mod.id} style={{ padding:'12px', background: T.bgMid, borderRadius:T.radiusSm, display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap: 10, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13 }}><strong>{mod.order_index}. {mod.title}</strong> <span style={{ fontSize:11, color:T.textMut }}>({mod.content_type})</span></div>
-                          {mod.description && <div style={{ fontSize:11, color:T.textSec, marginTop: 2 }}>{mod.description}</div>}
-                          <a href={mod.content_url} target="_blank" rel="noopener noreferrer" style={{ fontSize:11, color:T.accent }}>Open →</a>
-                        </div>
-                        <div style={{ display:'flex', gap:6, flexShrink: 0 }}>
-                          <Btn small variant="secondary" onClick={() => editModule(mod)}>Edit</Btn>
-                          <Btn small variant="danger" onClick={() => deleteModule(mod.id)}>Del</Btn>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  )
+  );
 }
 
 // ─── WORKSHOP PAGE (with auto progress) ──────────────────────────────────────
 function WorkshopPage({ user }) {
-  const [enrolledSkills, setEnrolledSkills] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [refreshing, setRefreshing] = useState(false)
-  const { width } = useWindowSize()
-  const isMobile = width <= 768
+  const [enrolledSkills, setEnrolledSkills] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const { width } = useWindowSize();
+  const isMobile = width <= 768;
 
   const fetchEnrolledSkills = useCallback(async () => {
     try {
-      setError(null)
-      if (!user?.id) { setError('No user found'); setLoading(false); return }
+      setError(null);
+      if (!user?.id) { setError('No user found'); setLoading(false); return; }
 
       const { data: progressData, error: progError } = await supabase
         .from('user_progress')
         .select('id, progress_pct, completed, skill_id, created_at')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: false });
 
-      if (progError) throw new Error(`Progress fetch failed: ${progError.message}`)
-      if (!progressData || progressData.length === 0) { setEnrolledSkills([]); setLoading(false); return }
+      if (progError) throw new Error(`Progress fetch failed: ${progError.message}`);
+      if (!progressData || progressData.length === 0) { setEnrolledSkills([]); setLoading(false); return; }
 
-      const skillIds = progressData.map(p => p.skill_id).filter(id => id)
-      const { data: skillsData, error: skillsError } = await supabase.from('skills').select('*').in('id', skillIds)
-      if (skillsError) throw new Error(`Skills fetch failed: ${skillsError.message}`)
+      const skillIds = progressData.map(p => p.skill_id).filter(id => id);
+      const { data: skillsData, error: skillsError } = await supabase.from('skills').select('*').in('id', skillIds);
+      if (skillsError) throw new Error(`Skills fetch failed: ${skillsError.message}`);
 
-      const skillsMap = {}
-      skillsData?.forEach(skill => { skillsMap[skill.id] = skill })
+      const skillsMap = {};
+      skillsData?.forEach(skill => { skillsMap[skill.id] = skill; });
 
       const skillsWithModules = await Promise.all(
         progressData.map(async (enrollment) => {
-          const skill = skillsMap[enrollment.skill_id]
-          if (!skill) return null
+          const skill = skillsMap[enrollment.skill_id];
+          if (!skill) return null;
           const { data: modules } = await supabase
             .from('skill_modules')
             .select('id, title, content_type, content_url, order_index')
             .eq('skill_id', enrollment.skill_id)
-            .order('order_index', { ascending: true })
-          return { id: enrollment.id, progress_pct: enrollment.progress_pct, completed: enrollment.completed, skill, modules: modules || [] }
+            .order('order_index', { ascending: true });
+          return { id: enrollment.id, progress_pct: enrollment.progress_pct, completed: enrollment.completed, skill, modules: modules || [] };
         })
-      )
-      setEnrolledSkills(skillsWithModules.filter(Boolean))
+      );
+      setEnrolledSkills(skillsWithModules.filter(Boolean));
     } catch (err) {
-      setError(err.message || 'Failed to load enrolled skills.')
+      setError(err.message || 'Failed to load enrolled skills.');
     } finally {
-      setLoading(false); setRefreshing(false)
+      setLoading(false); setRefreshing(false);
     }
-  }, [user?.id])
+  }, [user?.id]);
 
-  useEffect(() => { fetchEnrolledSkills() }, [fetchEnrolledSkills])
+  useEffect(() => { fetchEnrolledSkills(); }, [fetchEnrolledSkills]);
 
-  if (loading) return <Spinner />
+  if (loading) return <Spinner />;
 
   if (error) return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 24px', textAlign: 'center' }}>
       <Card>
         <Alert message={error} type="error" onClose={() => setError(null)} />
         <div style={{ marginTop: 20, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Btn onClick={() => { setRefreshing(true); fetchEnrolledSkills() }} disabled={refreshing}>{refreshing ? '⟳ Retrying...' : '⟳ Retry'}</Btn>
+          <Btn onClick={() => { setRefreshing(true); fetchEnrolledSkills(); }} disabled={refreshing}>{refreshing ? '⟳ Retrying...' : '⟳ Retry'}</Btn>
           <Link to="/skills"><Btn variant="secondary">Browse Skills →</Btn></Link>
         </div>
       </Card>
     </div>
-  )
+  );
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '20px 16px' : '40px 24px' }}>
@@ -1561,7 +1226,7 @@ function WorkshopPage({ user }) {
             Open modules to automatically track your progress.
           </p>
         </div>
-        <Btn small variant="secondary" onClick={() => { setRefreshing(true); fetchEnrolledSkills() }} disabled={refreshing}>
+        <Btn small variant="secondary" onClick={() => { setRefreshing(true); fetchEnrolledSkills(); }} disabled={refreshing}>
           {refreshing ? '⟳' : '⟳ Refresh'}
         </Btn>
       </div>
@@ -1582,41 +1247,40 @@ function WorkshopPage({ user }) {
               enrollment={enrollment}
               isMobile={isMobile}
               onProgressUpdate={(newEnrollment) => {
-                setEnrolledSkills(prev => prev.map(e => e.id === newEnrollment.id ? newEnrollment : e))
+                setEnrolledSkills(prev => prev.map(e => e.id === newEnrollment.id ? newEnrollment : e));
               }}
             />
           ))}
         </div>
       )}
     </div>
-  )
+  );
 }
 
-// ─── WORKSHOP CARD (with auto progress hook) ──────────────────────────────────
 function WorkshopCard({ enrollment, isMobile, onProgressUpdate }) {
   const { progressPct, markModuleComplete, isModuleCompleted } = useAutoProgress(
     enrollment.id,
     enrollment.modules,
     enrollment.progress_pct
-  )
+  );
 
   const handleModuleOpen = async (module) => {
-    window.open(module.content_url, '_blank', 'noopener,noreferrer')
-    await markModuleComplete(module.id)
-    const newPct = Math.round(([...enrollment.modules].filter(m => isModuleCompleted(m.id) || m.id === module.id).length / enrollment.modules.length) * 100)
-    onProgressUpdate({ ...enrollment, progress_pct: newPct, completed: newPct >= 100 })
-  }
+    window.open(module.content_url, '_blank', 'noopener,noreferrer');
+    await markModuleComplete(module.id);
+    const newPct = Math.round(([...enrollment.modules].filter(m => isModuleCompleted(m.id) || m.id === module.id).length / enrollment.modules.length) * 100);
+    onProgressUpdate({ ...enrollment, progress_pct: newPct, completed: newPct >= 100 });
+  };
 
   const getMediaIcon = (type) => {
     switch(type) {
-      case 'video': return '🎥'
-      case 'audio': return '🎧'
-      default: return '📄'
+      case 'video': return '🎥';
+      case 'audio': return '🎧';
+      default: return '📄';
     }
-  }
+  };
 
-  const completedCount = enrollment.modules.filter(m => isModuleCompleted(m.id)).length
-  const totalModules = enrollment.modules.length
+  const completedCount = enrollment.modules.filter(m => isModuleCompleted(m.id)).length;
+  const totalModules = enrollment.modules.length;
 
   return (
     <Card hover>
@@ -1640,9 +1304,7 @@ function WorkshopCard({ enrollment, isMobile, onProgressUpdate }) {
           </div>
         </div>
 
-        {/* Progress circle + actions */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, minWidth: isMobile ? '100%' : 150 }}>
-          {/* Circular progress indicator */}
           <div style={{ position: 'relative', width: 70, height: 70 }}>
             <svg viewBox="0 0 70 70" style={{ transform: 'rotate(-90deg)', width: 70, height: 70 }}>
               <circle cx="35" cy="35" r="28" fill="none" stroke={T.border} strokeWidth="6" />
@@ -1672,7 +1334,6 @@ function WorkshopCard({ enrollment, isMobile, onProgressUpdate }) {
         </div>
       </div>
 
-      {/* Auto-updating progress bar */}
       <div style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
           <span style={{ fontSize: 12, color: T.textSec }}>Course Progress</span>
@@ -1690,7 +1351,6 @@ function WorkshopCard({ enrollment, isMobile, onProgressUpdate }) {
         </div>
       </div>
 
-      {/* Module list with auto-completion */}
       {enrollment.modules.length > 0 && (
         <div>
           <h3 style={{ fontFamily: T.fontHead, fontSize: 14, marginBottom: 10, color: T.textSec }}>
@@ -1698,7 +1358,7 @@ function WorkshopCard({ enrollment, isMobile, onProgressUpdate }) {
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(240px, 1fr))', gap: 8 }}>
             {enrollment.modules.map((mod) => {
-              const done = isModuleCompleted(mod.id)
+              const done = isModuleCompleted(mod.id);
               return (
                 <div
                   key={mod.id}
@@ -1724,19 +1384,573 @@ function WorkshopCard({ enrollment, isMobile, onProgressUpdate }) {
                     {done ? '✓' : '↗'}
                   </span>
                 </div>
-              )
+              );
             })}
           </div>
         </div>
       )}
     </Card>
-  )
+  );
 }
 
-// ─── SEED SKILLS ─────────────────────────────────────────────────────────────
+// ─── ADMIN DASHBOARD (with all tabs) ─────────────────────────────────────────
+function AdminPage({ user }) {
+  const [activeTab, setActiveTab] = useState('analytics');
+  const { width } = useWindowSize();
+  const isMobile = width <= 768;
+
+  const renderTab = () => {
+    switch (activeTab) {
+      case 'analytics': return <AnalyticsTab />;
+      case 'users': return <UserManagementTab />;
+      case 'content': return <ContentManagementTab />;
+      case 'reviews': return <ReviewModerationTab />;
+      case 'revenue': return <RevenueTab />;
+      case 'health': return <SystemHealthTab />;
+      default: return null;
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: isMobile ? '20px 16px' : '40px 24px' }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontFamily: T.fontHead, fontWeight: 700, fontSize: isMobile ? 22 : 28, letterSpacing: '-0.03em' }}>Admin Dashboard</h1>
+        <p style={{ color: T.textSec, marginTop: 4, fontSize: 13 }}>Manage platform, users, and content.</p>
+      </div>
+
+      <div className="nav-scroll" style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: `1px solid ${T.border}`, paddingBottom: 0, overflowX: 'auto' }}>
+        {[
+          { id: 'analytics', label: '📊 Analytics' },
+          { id: 'users', label: '👥 Users' },
+          { id: 'content', label: '📚 Content' },
+          { id: 'reviews', label: '⭐ Reviews' },
+          { id: 'revenue', label: '💰 Revenue' },
+          { id: 'health', label: '🔧 System Health' }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              fontFamily: T.fontHead,
+              fontSize: isMobile ? 12 : 13,
+              fontWeight: 600,
+              padding: isMobile ? '8px 14px' : '10px 20px',
+              borderRadius: `${T.radiusSm} ${T.radiusSm} 0 0`,
+              background: activeTab === tab.id ? T.bgCard : 'transparent',
+              color: activeTab === tab.id ? T.accent : T.textSec,
+              border: activeTab === tab.id ? `1px solid ${T.border}` : '1px solid transparent',
+              borderBottom: activeTab === tab.id ? `1px solid ${T.bgCard}` : 'none',
+              marginBottom: -1,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {renderTab()}
+    </div>
+  );
+}
+
+// ---------- Analytics Tab ----------
+function AnalyticsTab() {
+  const [data, setData] = useState({
+    signups: [],
+    activeUsers: { daily: 0, weekly: 0, monthly: 0 },
+    enrollmentRate: [],
+    completionRate: []
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      try {
+        // 1. New signups over last 30 days
+        const thirtyDaysAgo = startOfDay(subDays(new Date(), 30)).toISOString();
+        const { data: signups } = await supabase
+          .from('profiles')
+          .select('created_at')
+          .gte('created_at', thirtyDaysAgo)
+          .order('created_at', { ascending: true });
+        const signupsByDay = groupByDay(signups || []);
+
+        // 2. Active users (last 7 days for weekly, etc.)
+        const now = new Date();
+        const dayAgo = subDays(now, 1);
+        const weekAgo = subDays(now, 7);
+        const monthAgo = subDays(now, 30);
+        const { data: activities } = await supabase
+          .from('user_activity')
+          .select('user_id, created_at')
+          .gte('created_at', monthAgo.toISOString());
+
+        const activeUsers = {
+          daily: new Set(activities?.filter(a => new Date(a.created_at) >= dayAgo).map(a => a.user_id)).size,
+          weekly: new Set(activities?.filter(a => new Date(a.created_at) >= weekAgo).map(a => a.user_id)).size,
+          monthly: new Set(activities?.map(a => a.user_id)).size
+        };
+
+        // 3. Enrollment rate per skill
+        const { data: enrollments } = await supabase
+          .from('user_progress')
+          .select('skill_id, skills(title)')
+          .not('skill_id', 'is', null);
+        const enrollmentCount = {};
+        enrollments?.forEach(e => {
+          const title = e.skills?.title || 'Unknown';
+          enrollmentCount[title] = (enrollmentCount[title] || 0) + 1;
+        });
+        const enrollmentRate = Object.entries(enrollmentCount).map(([name, count]) => ({ name, count }));
+
+        // 4. Completion rate per skill
+        const { data: completions } = await supabase
+          .from('user_progress')
+          .select('skill_id, skills(title), completed')
+          .eq('completed', true);
+        const completionCount = {};
+        completions?.forEach(c => {
+          const title = c.skills?.title || 'Unknown';
+          completionCount[title] = (completionCount[title] || 0) + 1;
+        });
+        const completionRate = Object.entries(completionCount).map(([name, count]) => ({ name, count }));
+
+        setData({ signups: signupsByDay, activeUsers, enrollmentRate, completionRate });
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAnalytics();
+  }, []);
+
+  const groupByDay = (items) => {
+    const groups = {};
+    items.forEach(item => {
+      const day = format(new Date(item.created_at), 'yyyy-MM-dd');
+      groups[day] = (groups[day] || 0) + 1;
+    });
+    return Object.entries(groups).map(([date, count]) => ({ date, count })).slice(-30);
+  };
+
+  if (loading) return <Spinner />;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+        <Card><h3>Daily Active</h3><div style={{ fontSize: 32, color: T.accent }}>{data.activeUsers.daily}</div></Card>
+        <Card><h3>Weekly Active</h3><div style={{ fontSize: 32, color: T.accent }}>{data.activeUsers.weekly}</div></Card>
+        <Card><h3>Monthly Active</h3><div style={{ fontSize: 32, color: T.accent }}>{data.activeUsers.monthly}</div></Card>
+      </div>
+
+      <Card>
+        <h3>New Signups (Last 30 Days)</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={data.signups}>
+            <XAxis dataKey="date" tick={{ fill: T.textSec }} />
+            <YAxis tick={{ fill: T.textSec }} />
+            <Tooltip />
+            <Line type="monotone" dataKey="count" stroke={T.accent} strokeWidth={2} />
+          </LineChart>
+        </ResponsiveContainer>
+      </Card>
+
+      <Card>
+        <h3>Enrollment Rate per Skill</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={data.enrollmentRate}>
+            <XAxis dataKey="name" tick={{ fill: T.textSec }} angle={-45} textAnchor="end" height={80} />
+            <YAxis tick={{ fill: T.textSec }} />
+            <Tooltip />
+            <Bar dataKey="count" fill={T.accent} />
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
+
+      <Card>
+        <h3>Completion Rate per Skill</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={data.completionRate}>
+            <XAxis dataKey="name" tick={{ fill: T.textSec }} angle={-45} textAnchor="end" height={80} />
+            <YAxis tick={{ fill: T.textSec }} />
+            <Tooltip />
+            <Bar dataKey="count" fill={T.green} />
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
+    </div>
+  );
+}
+
+// ---------- User Management Tab ----------
+function UserManagementTab() {
+  const [users, setUsers] = useState([]);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [message, setMessage] = useState(null);
+
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    let query = supabase.from('profiles').select('id, email, role, last_login, banned, email_confirmed');
+    if (search) {
+      query = query.ilike('email', `%${search}%`);
+    }
+    const { data, error } = await query;
+    if (error) {
+      setMessage({ type: 'error', text: error.message });
+    } else {
+      setUsers(data || []);
+    }
+    setLoading(false);
+  }, [search]);
+
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  const updateUser = async (id, updates) => {
+    setActionLoading(true);
+    const { error } = await supabase.from('profiles').update(updates).eq('id', id);
+    if (error) {
+      setMessage({ type: 'error', text: error.message });
+    } else {
+      setMessage({ type: 'success', text: 'User updated' });
+      fetchUsers();
+    }
+    setActionLoading(false);
+    setTimeout(() => setMessage(null), 3000);
+  };
+
+  const deleteUser = async (id) => {
+    if (!window.confirm('Delete this user? This action cannot be undone.')) return;
+    setActionLoading(true);
+    const { error } = await supabase.from('profiles').delete().eq('id', id);
+    if (error) {
+      setMessage({ type: 'error', text: error.message });
+    } else {
+      setMessage({ type: 'success', text: 'User deleted' });
+      fetchUsers();
+    }
+    setActionLoading(false);
+  };
+
+  if (loading) return <Spinner />;
+
+  return (
+    <div>
+      <div style={{ marginBottom: 16 }}>
+        <Input placeholder="Search by email" value={search} onChange={e => setSearch(e.target.value)} />
+      </div>
+      {message && <Alert message={message.text} type={message.type} onClose={() => setMessage(null)} />}
+      <Card>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left', padding: '8px' }}>Email</th>
+                <th style={{ textAlign: 'left', padding: '8px' }}>Role</th>
+                <th style={{ textAlign: 'left', padding: '8px' }}>Last Login</th>
+                <th style={{ textAlign: 'left', padding: '8px' }}>Banned</th>
+                <th style={{ textAlign: 'left', padding: '8px' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map(user => (
+                <tr key={user.id}>
+                  <td style={{ padding: '8px' }}>{user.email}</td>
+                  <td style={{ padding: '8px' }}>
+                    <select
+                      value={user.role}
+                      onChange={e => updateUser(user.id, { role: e.target.value })}
+                      disabled={actionLoading}
+                      style={{ background: T.bgCard, color: T.textPri, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, padding: '4px' }}
+                    >
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </td>
+                  <td style={{ padding: '8px' }}>{user.last_login ? new Date(user.last_login).toLocaleString() : '-'}</td>
+                  <td style={{ padding: '8px' }}>
+                    <input
+                      type="checkbox"
+                      checked={user.banned || false}
+                      onChange={e => updateUser(user.id, { banned: e.target.checked })}
+                      disabled={actionLoading}
+                    />
+                  </td>
+                  <td style={{ padding: '8px' }}>
+                    <Btn small variant="danger" onClick={() => deleteUser(user.id)} disabled={actionLoading}>Delete</Btn>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ---------- Content Management Tab ----------
+function ContentManagementTab() {
+  const [skills, setSkills] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState({ title: '', description: '', category: '', level: 'Beginner', duration: '' });
+
+  const fetchSkills = useCallback(async () => {
+    const { data, error } = await supabase.from('skills').select('*').order('created_at', { ascending: false });
+    if (error) setMessage({ type: 'error', text: error.message });
+    else setSkills(data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchSkills(); }, [fetchSkills]);
+
+  const deleteSkill = async (id) => {
+    if (!window.confirm('Delete this skill? All modules and progress will be lost.')) return;
+    const { error } = await supabase.from('skills').delete().eq('id', id);
+    if (error) setMessage({ type: 'error', text: error.message });
+    else {
+      setMessage({ type: 'success', text: 'Skill deleted' });
+      fetchSkills();
+    }
+    setTimeout(() => setMessage(null), 3000);
+  };
+
+  const updateSkill = async (id) => {
+    const { error } = await supabase.from('skills').update(form).eq('id', id);
+    if (error) setMessage({ type: 'error', text: error.message });
+    else {
+      setMessage({ type: 'success', text: 'Skill updated' });
+      setEditing(null);
+      fetchSkills();
+    }
+  };
+
+  const togglePublish = async (id, currentPublished) => {
+    const { error } = await supabase.from('skills').update({ published: !currentPublished }).eq('id', id);
+    if (error) setMessage({ type: 'error', text: error.message });
+    else fetchSkills();
+  };
+
+  if (loading) return <Spinner />;
+
+  return (
+    <div>
+      {message && <Alert message={message.text} type={message.type} onClose={() => setMessage(null)} />}
+      <Card>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left', padding: '8px' }}>Title</th>
+                <th style={{ textAlign: 'left', padding: '8px' }}>Category</th>
+                <th style={{ textAlign: 'left', padding: '8px' }}>Level</th>
+                <th style={{ textAlign: 'left', padding: '8px' }}>Published</th>
+                <th style={{ textAlign: 'left', padding: '8px' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {skills.map(skill => (
+                <tr key={skill.id}>
+                  <td style={{ padding: '8px' }}>
+                    {editing === skill.id ? (
+                      <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
+                    ) : (
+                      skill.title
+                    )}
+                  </td>
+                  <td style={{ padding: '8px' }}>
+                    {editing === skill.id ? (
+                      <Input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} />
+                    ) : (
+                      skill.category || '-'
+                    )}
+                  </td>
+                  <td style={{ padding: '8px' }}>
+                    {editing === skill.id ? (
+                      <select value={form.level} onChange={e => setForm({ ...form, level: e.target.value })}>
+                        <option>Beginner</option><option>Intermediate</option><option>Advanced</option>
+                      </select>
+                    ) : (
+                      skill.level
+                    )}
+                  </td>
+                  <td style={{ padding: '8px' }}>
+                    <input
+                      type="checkbox"
+                      checked={skill.published !== false}
+                      onChange={() => togglePublish(skill.id, skill.published)}
+                    />
+                  </td>
+                  <td style={{ padding: '8px', display: 'flex', gap: '6px' }}>
+                    {editing === skill.id ? (
+                      <>
+                        <Btn small variant="success" onClick={() => updateSkill(skill.id)}>Save</Btn>
+                        <Btn small variant="secondary" onClick={() => setEditing(null)}>Cancel</Btn>
+                      </>
+                    ) : (
+                      <>
+                        <Btn small variant="secondary" onClick={() => { setEditing(skill.id); setForm({ title: skill.title, description: skill.description, category: skill.category, level: skill.level, duration: skill.duration }); }}>Edit</Btn>
+                        <Btn small variant="danger" onClick={() => deleteSkill(skill.id)}>Delete</Btn>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ---------- Review Moderation Tab ----------
+function ReviewModerationTab() {
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState(null);
+
+  const fetchReviews = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('*, users(email), skills(title)')
+      .order('created_at', { ascending: false });
+    if (error) setMessage({ type: 'error', text: error.message });
+    else setReviews(data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchReviews(); }, [fetchReviews]);
+
+  const deleteReview = async (id) => {
+    if (!window.confirm('Delete this review?')) return;
+    const { error } = await supabase.from('reviews').delete().eq('id', id);
+    if (error) setMessage({ type: 'error', text: error.message });
+    else {
+      setMessage({ type: 'success', text: 'Review deleted' });
+      fetchReviews();
+    }
+    setTimeout(() => setMessage(null), 3000);
+  };
+
+  if (loading) return <Spinner />;
+
+  return (
+    <Card>
+      {message && <Alert message={message.text} type={message.type} onClose={() => setMessage(null)} />}
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left', padding: '8px' }}>User</th>
+              <th style={{ textAlign: 'left', padding: '8px' }}>Skill</th>
+              <th style={{ textAlign: 'left', padding: '8px' }}>Rating</th>
+              <th style={{ textAlign: 'left', padding: '8px' }}>Comment</th>
+              <th style={{ textAlign: 'left', padding: '8px' }}>Date</th>
+              <th style={{ textAlign: 'left', padding: '8px' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {reviews.map(review => (
+              <tr key={review.id}>
+                <td style={{ padding: '8px' }}>{review.users?.email}</td>
+                <td style={{ padding: '8px' }}>{review.skills?.title}</td>
+                <td style={{ padding: '8px' }}>{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</td>
+                <td style={{ padding: '8px', maxWidth: '200px', wordBreak: 'break-word' }}>{review.comment}</td>
+                <td style={{ padding: '8px' }}>{new Date(review.created_at).toLocaleDateString()}</td>
+                <td style={{ padding: '8px' }}>
+                  <Btn small variant="danger" onClick={() => deleteReview(review.id)}>Delete</Btn>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+// ---------- Revenue Tab (Placeholder) ----------
+function RevenueTab() {
+  return (
+    <Card>
+      <h3>Revenue Metrics (Mock Data)</h3>
+      <p>This section will show MRR, churn, LTV, and subscription details when monetized.</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 20 }}>
+        <div><strong>Monthly Recurring Revenue</strong><br />$0.00</div>
+        <div><strong>Churn Rate</strong><br />0%</div>
+        <div><strong>Lifetime Value</strong><br />$0.00</div>
+      </div>
+      <Btn variant="secondary" style={{ marginTop: 20 }} disabled>Enable Payments (Coming Soon)</Btn>
+    </Card>
+  );
+}
+
+// ---------- System Health Tab ----------
+function SystemHealthTab() {
+  const [health, setHealth] = useState({ dbSize: '...', storageUsed: '...', errors: [] });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Fetch Supabase system info (requires admin API key)
+    // Here we simulate with placeholder data
+    setTimeout(() => {
+      setHealth({
+        dbSize: '124 MB',
+        storageUsed: '45 MB',
+        errors: [
+          { time: '2025-03-25 10:23', message: 'Failed login attempt from 192.168.1.1' },
+          { time: '2025-03-24 23:12', message: 'API timeout on /reviews endpoint' }
+        ]
+      });
+      setLoading(false);
+    }, 500);
+  }, []);
+
+  if (loading) return <Spinner />;
+
+  return (
+    <Card>
+      <h3>Supabase Usage</h3>
+      <p><strong>Database Size:</strong> {health.dbSize}</p>
+      <p><strong>Storage Used:</strong> {health.storageUsed}</p>
+      <h3 style={{ marginTop: 20 }}>Recent API Errors / Failed Logins</h3>
+      <ul style={{ marginTop: 8, listStyle: 'none', padding: 0 }}>
+        {health.errors.map((err, i) => (
+          <li key={i} style={{ borderBottom: `1px solid ${T.border}`, padding: '8px 0' }}>
+            <strong>{err.time}</strong> – {err.message}
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+// ─── PROTECTED ROUTE ─────────────────────────────────────────────────────────
+function Protected({ user, loading, children }) {
+  if (loading) return <Spinner />;
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
+
+// ─── ADMIN ROUTE ─────────────────────────────────────────────────────────────
+function AdminRoute({ user, role, loading, children }) {
+  if (loading) return <Spinner />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (role !== 'admin') return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
+// ─── SEED FUNCTIONS ──────────────────────────────────────────────────────────
 async function seedSkillsIfNeeded() {
-  const { count } = await supabase.from('skills').select('*', { count: 'exact', head: true })
-  if (count && count >= 50) return
+  const { count } = await supabase.from('skills').select('*', { count: 'exact', head: true });
+  if (count && count >= 50) return;
   const skillList = [
     { title: 'Calculus I', category: 'Mathematics', level: 'Intermediate', description: 'Limits, derivatives, integrals.', duration: '8 weeks' },
     { title: 'Linear Algebra', category: 'Mathematics', level: 'Intermediate', description: 'Vectors, matrices, transformations.', duration: '6 weeks' },
@@ -1790,25 +2004,45 @@ async function seedSkillsIfNeeded() {
     { title: 'Critical Thinking', category: 'Soft Skills', level: 'Intermediate', description: 'Logic, problem solving.', duration: '3 weeks' },
     { title: 'Leadership & Management', category: 'Business', level: 'Advanced', description: 'Team building, strategy.', duration: '5 weeks' },
     { title: 'Excel for Business', category: 'Business', level: 'Beginner', description: 'Formulas, pivot tables, dashboards.', duration: '4 weeks' },
-  ]
+  ];
   for (const skill of skillList) {
-    await supabase.from('skills').insert(skill).select()
+    await supabase.from('skills').insert(skill).select();
   }
-  console.log('Seeded 50+ skills')
+  console.log('Seeded 50+ skills');
 }
 
-// ─── PROTECTED ROUTE ─────────────────────────────────────────────────────────
-function Protected({ user, loading, children }) {
-  if (loading) return <Spinner />
-  if (!user) return <Navigate to="/login" replace />
-  return children
+async function seedAdminUser() {
+  const { data: existing } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('email', 'admin@example.com')
+    .single();
+  if (!existing) {
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: 'admin@example.com',
+      password: 'Admin123!',
+      options: { data: { full_name: 'Admin' } }
+    });
+    if (!authError && authData.user) {
+      await supabase
+        .from('profiles')
+        .update({ role: 'admin' })
+        .eq('id', authData.user.id);
+      console.log('Admin user created');
+    } else {
+      console.error('Failed to create admin user:', authError);
+    }
+  }
 }
 
 // ─── APP ROOT ────────────────────────────────────────────────────────────────
 export default function App() {
-  const { user, loading, signOut } = useAuth()
+  const { user, role, loading, signOut } = useAuth();
 
-  useEffect(() => { seedSkillsIfNeeded() }, [])
+  useEffect(() => {
+    seedSkillsIfNeeded();
+    seedAdminUser();
+  }, []);
 
   return (
     <BrowserRouter>
@@ -1825,7 +2059,13 @@ export default function App() {
                 <Route path="/workshop"  element={<Protected user={user} loading={loading}><WorkshopPage user={user} /></Protected>} />
                 <Route path="/skills"    element={<Protected user={user} loading={loading}><SkillsPage user={user} /></Protected>} />
                 <Route path="/skill/:skillId" element={<Protected user={user} loading={loading}><SkillDetailPage user={user} /></Protected>} />
-                <Route path="/admin"     element={<Protected user={user} loading={loading}><AdminPage user={user} /></Protected>} />
+                <Route path="/admin"     element={
+                  <Protected user={user} loading={loading}>
+                    <AdminRoute user={user} role={role} loading={loading}>
+                      <AdminPage user={user} />
+                    </AdminRoute>
+                  </Protected>
+                } />
                 <Route path="*" element={
                   <div style={{ textAlign:'center', padding:'120px 24px' }}>
                     <h1 style={{ fontFamily:T.fontHead, fontSize:64, color:T.accent }}>404</h1>
@@ -1839,5 +2079,5 @@ export default function App() {
         </Routes>
       </div>
     </BrowserRouter>
-  )
+  );
 }
