@@ -152,7 +152,6 @@ function Alert({ message, type='error', onClose }) {
   )
 }
 
-// ─── RATING STARS ─────────────────────────────────────────────────────────────
 function RatingStars({ rating, onRate, readonly = false, size = 18 }) {
   const [hover, setHover] = useState(0)
   const stars = [1,2,3,4,5]
@@ -176,15 +175,16 @@ function RatingStars({ rating, onRate, readonly = false, size = 18 }) {
   )
 }
 
-// ─── NAVBAR (shows Manage Skills for all authenticated users) ─────────────
+// ─── NAVBAR (includes Workshop) ──────────────────────────────────────────────
 function Navbar({ user, onSignOut }) {
   const location = useLocation()
 
   const navLinks = user
     ? [
         { to:'/dashboard', label:'Dashboard' },
+        { to:'/workshop', label:'Workshop' },
         { to:'/skills', label:'Skills' },
-        { to:'/admin', label:'Manage Skills' }   // All authenticated users can manage their own skills
+        { to:'/admin', label:'Manage Skills' }
       ]
     : [{ to:'/', label:'Home' }, { to:'/login', label:'Sign In' }]
 
@@ -225,7 +225,7 @@ function Navbar({ user, onSignOut }) {
   )
 }
 
-// ─── LANDING PAGE (with top rated skills and latest reviews) ─────────────────
+// ─── LANDING PAGE (unchanged) ────────────────────────────────────────────────
 function LandingPage() {
   const navigate = useNavigate()
   const [topSkills, setTopSkills] = useState([])
@@ -287,7 +287,6 @@ function LandingPage() {
 
   return (
     <div style={{ fontFamily: T.fontBody }}>
-      {/* Hero */}
       <section style={{
         minHeight: '90vh', display:'flex', flexDirection:'column',
         alignItems:'center', justifyContent:'center', textAlign:'center',
@@ -299,7 +298,6 @@ function LandingPage() {
           background: 'radial-gradient(circle, rgba(56,189,248,0.08) 0%, transparent 70%)',
           pointerEvents:'none'
         }} />
-
         <div style={{ animation: 'fadeUp 0.7s ease both', maxWidth: 760 }}>
           <h1 style={{
             fontFamily: T.fontHead, fontWeight: 800, letterSpacing: '-0.04em',
@@ -323,7 +321,6 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* Stats */}
       <section style={{ padding: '40px 24px', borderTop:`1px solid ${T.border}`, borderBottom:`1px solid ${T.border}` }}>
         <div style={{ maxWidth: 900, margin:'0 auto', display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:24, textAlign:'center' }}>
           {stats.map(s => (
@@ -335,7 +332,6 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* Top Rated Skills */}
       <section style={{ padding: '80px 24px', background: T.bgMid }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 48 }}>
@@ -371,7 +367,6 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* Latest Reviews */}
       <section style={{ padding: '80px 24px' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 48 }}>
@@ -411,7 +406,6 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* Features */}
       <section style={{ padding: '80px 24px' }}>
         <div style={{ maxWidth: 1100, margin:'0 auto' }}>
           <div style={{ textAlign:'center', marginBottom: 56 }}>
@@ -432,7 +426,6 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* CTA */}
       <section style={{ padding: '80px 24px', textAlign:'center' }}>
         <Card style={{ maxWidth: 600, margin:'0 auto', padding:'48px 32px', background:`linear-gradient(135deg, ${T.bgCard}, ${T.bgMid})` }} glow>
           <h2 style={{ fontFamily: T.fontHead, fontWeight: 700, fontSize: 30, letterSpacing:'-0.03em', marginBottom: 16 }}>
@@ -447,7 +440,6 @@ function LandingPage() {
         </Card>
       </section>
 
-      {/* Footer */}
       <footer style={{ padding: '28px 24px', borderTop:`1px solid ${T.border}`, textAlign:'center' }}>
         <p style={{ color: T.textMut, fontSize: 13 }}>
           © {new Date().getFullYear()} Skillery Pro. Built with React + Supabase.
@@ -457,7 +449,7 @@ function LandingPage() {
   )
 }
 
-// ─── AUTH PAGES ────────────────────────────────────────────────────────────────
+// ─── AUTH PAGES ───────────────────────────────────────────────────────────────
 function AuthLayout({ children, title, subtitle }) {
   return (
     <div style={{
@@ -569,7 +561,7 @@ function SignupPage() {
   )
 }
 
-// ─── DASHBOARD (improved) ─────────────────────────────────────────────────────
+// ─── DASHBOARD (unchanged) ───────────────────────────────────────────────────
 function DashboardPage({ user }) {
   const [skills, setSkills] = useState([])
   const [progress, setProgress] = useState([])
@@ -871,7 +863,7 @@ function SkillDetailPage({ user }) {
   )
 }
 
-// ─── SKILLS BROWSER (with ratings and link to detail) ─────────────────────────
+// ─── SKILLS BROWSER (unchanged) ──────────────────────────────────────────────
 function SkillsPage({ user }) {
   const [skills, setSkills] = useState([])
   const [loading, setLoading] = useState(true)
@@ -982,7 +974,7 @@ function SkillsPage({ user }) {
   )
 }
 
-// ─── ADMIN PANEL (with file upload for modules) ──────────────────────────────
+// ─── ADMIN PANEL (with file upload and stats) ────────────────────────────────
 function AdminPage({ user }) {
   const [tab, setTab] = useState('skills')
   const [skills, setSkills] = useState([])
@@ -1002,7 +994,7 @@ function AdminPage({ user }) {
     content_type: 'video',
     content_url: '',
     order_index: 0,
-    uploadMethod: 'url', // 'url' or 'file'
+    uploadMethod: 'url',
     file: null,
     uploading: false
   })
@@ -1120,7 +1112,6 @@ function AdminPage({ user }) {
     setTab('add')
   }
 
-  // Helper to upload file to Supabase Storage
   const uploadFile = async (file, skillId) => {
     const fileExt = file.name.split('.').pop()
     const fileName = `${skillId}/${Date.now()}.${fileExt}`
@@ -1290,7 +1281,7 @@ function AdminPage({ user }) {
         </Card>
       </div>
 
-      {/* Admin tabs */}
+      {/* Tabs */}
       <div style={{ display:'flex', gap:4, marginBottom:28, borderBottom:`1px solid ${T.border}`, paddingBottom:0 }}>
         {['skills', 'add', 'modules'].map(t => (
           <button key={t} onClick={() => { setTab(t); if (t === 'add') setEditingId(null); setForm({ title:'', description:'', category:'', level:'Beginner', duration:'' }); }} style={{
@@ -1378,7 +1369,6 @@ function AdminPage({ user }) {
                     </select>
                   </div>
 
-                  {/* Upload Method Selection */}
                   <div style={{ marginTop: 12 }}>
                     <label style={{ fontFamily: T.fontHead, fontSize: 13, color: T.textSec, display: 'block', marginBottom: 8 }}>Content Source</label>
                     <div style={{ display:'flex', gap: 16 }}>
@@ -1493,7 +1483,214 @@ function AdminPage({ user }) {
   )
 }
 
-// ─── SEED SKILLS (if less than 50) ──────────────────────────────────────────
+// ─── WORKSHOP PAGE (new) ─────────────────────────────────────────────────────
+function WorkshopPage({ user }) {
+  const [enrolledSkills, setEnrolledSkills] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [updatingProgress, setUpdatingProgress] = useState({})
+
+  useEffect(() => {
+    const fetchEnrolledSkills = async () => {
+      const { data: progressData, error } = await supabase
+        .from('user_progress')
+        .select(`
+          id,
+          progress_pct,
+          completed,
+          skills (
+            id,
+            title,
+            description,
+            category,
+            level,
+            duration
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching enrolled skills:', error)
+        setLoading(false)
+        return
+      }
+
+      const skillsWithModules = await Promise.all(
+        (progressData || []).map(async (enrollment) => {
+          const { data: modules, error: modError } = await supabase
+            .from('skill_modules')
+            .select('id, title, content_type, content_url, order_index')
+            .eq('skill_id', enrollment.skills.id)
+            .order('order_index', { ascending: true })
+
+          if (modError) console.error('Error fetching modules:', modError)
+
+          return {
+            ...enrollment,
+            skill: enrollment.skills,
+            modules: modules || []
+          }
+        })
+      )
+
+      setEnrolledSkills(skillsWithModules)
+      setLoading(false)
+    }
+
+    fetchEnrolledSkills()
+  }, [user.id])
+
+  const updateProgress = async (enrollmentId, newProgress) => {
+    setUpdatingProgress(prev => ({ ...prev, [enrollmentId]: true }))
+    const { error } = await supabase
+      .from('user_progress')
+      .update({ progress_pct: newProgress, completed: newProgress >= 100 })
+      .eq('id', enrollmentId)
+
+    if (!error) {
+      setEnrolledSkills(prev =>
+        prev.map(entry =>
+          entry.id === enrollmentId
+            ? { ...entry, progress_pct: newProgress, completed: newProgress >= 100 }
+            : entry
+        )
+      )
+    }
+    setUpdatingProgress(prev => ({ ...prev, [enrollmentId]: false }))
+  }
+
+  const getMediaIcon = (type) => {
+    switch(type) {
+      case 'video': return '🎥';
+      case 'audio': return '🎧';
+      default: return '📄';
+    }
+  }
+
+  if (loading) return <Spinner />
+
+  return (
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 24px' }}>
+      <div style={{ marginBottom: 36 }}>
+        <h1 style={{ fontFamily: T.fontHead, fontWeight: 700, fontSize: 28, letterSpacing: '-0.03em' }}>
+          Your Workshop
+        </h1>
+        <p style={{ color: T.textSec, marginTop: 6 }}>
+          Continue where you left off. Track your progress and access course materials.
+        </p>
+      </div>
+
+      {enrolledSkills.length === 0 ? (
+        <Card>
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>📚</div>
+            <p style={{ color: T.textSec, fontSize: 16 }}>
+              You haven't enrolled in any skills yet.
+            </p>
+            <Link to="/skills">
+              <Btn style={{ marginTop: 24 }}>Browse Skills →</Btn>
+            </Link>
+          </div>
+        </Card>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+          {enrolledSkills.map((enrollment) => (
+            <Card key={enrollment.id} hover>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <h2 style={{ fontFamily: T.fontHead, fontSize: 20, marginBottom: 8 }}>
+                    {enrollment.skill.title}
+                  </h2>
+                  <p style={{ color: T.textSec, fontSize: 14, marginBottom: 12 }}>
+                    {enrollment.skill.description?.substring(0, 150)}...
+                  </p>
+                  <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
+                    <Badge color={T.accent}>{enrollment.skill.category || 'General'}</Badge>
+                    <Badge color={enrollment.skill.level === 'Advanced' ? T.red : enrollment.skill.level === 'Intermediate' ? T.gold : T.green}>
+                      {enrollment.skill.level || 'Beginner'}
+                    </Badge>
+                    {enrollment.skill.duration && (
+                      <span style={{ fontSize: 12, color: T.textMut }}>⏱ {enrollment.skill.duration}</span>
+                    )}
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <span style={{ fontSize: 13, color: T.textSec }}>Progress</span>
+                      <span style={{ fontSize: 13, fontWeight: 500 }}>{enrollment.progress_pct}%</span>
+                    </div>
+                    <div style={{ height: 8, background: T.border, borderRadius: 4 }}>
+                      <div
+                        style={{
+                          width: `${enrollment.progress_pct}%`,
+                          height: '100%',
+                          background: T.accent,
+                          borderRadius: 4,
+                          transition: 'width 0.3s'
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Modules List with direct links */}
+                  <div style={{ marginTop: 16 }}>
+                    <h3 style={{ fontFamily: T.fontHead, fontSize: 16, marginBottom: 12 }}>📖 Modules</h3>
+                    {enrollment.modules.length === 0 ? (
+                      <p style={{ color: T.textSec, fontSize: 13 }}>No modules yet.</p>
+                    ) : (
+                      <ul style={{ listStyle: 'none', padding: 0 }}>
+                        {enrollment.modules.map((mod, idx) => (
+                          <li key={mod.id} style={{ marginBottom: 8 }}>
+                            <a
+                              href={mod.content_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: T.textPri, textDecoration: 'none' }}
+                            >
+                              <span>{getMediaIcon(mod.content_type)}</span>
+                              <span>{mod.order_index}. {mod.title}</span>
+                              <span style={{ fontSize: 11, color: T.textMut }}>↗</span>
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div style={{ minWidth: 160, textAlign: 'center' }}>
+                  <Link to={`/skill/${enrollment.skill.id}`}>
+                    <Btn variant="primary" style={{ width: '100%', marginBottom: 12 }}>
+                      Continue Learning →
+                    </Btn>
+                  </Link>
+                  <div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={enrollment.progress_pct}
+                      onChange={(e) => updateProgress(enrollment.id, parseInt(e.target.value))}
+                      disabled={updatingProgress[enrollment.id]}
+                      style={{ width: '100%', cursor: 'pointer' }}
+                    />
+                    <div style={{ fontSize: 11, color: T.textMut, marginTop: 4 }}>
+                      {updatingProgress[enrollment.id] ? 'Updating...' : 'Drag to update progress'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── SEED SKILLS (unchanged) ─────────────────────────────────────────────────
 async function seedSkillsIfNeeded() {
   const { count } = await supabase.from('skills').select('*', { count: 'exact', head: true })
   if (count && count >= 50) return
@@ -1559,14 +1756,14 @@ async function seedSkillsIfNeeded() {
   console.log('Seeded 50+ skills')
 }
 
-// ─── PROTECTED ROUTE (no role checks) ────────────────────────────────────────
+// ─── PROTECTED ROUTE ─────────────────────────────────────────────────────────
 function Protected({ user, loading, children }) {
   if (loading) return <Spinner />
   if (!user) return <Navigate to="/login" replace />
   return children
 }
 
-// ─── APP ROOT ─────────────────────────────────────────────────────────────────
+// ─── APP ROOT ────────────────────────────────────────────────────────────────
 export default function App() {
   const { user, loading, signOut } = useAuth()
 
@@ -1593,6 +1790,7 @@ export default function App() {
               <Routes>
                 <Route path="/"          element={<LandingPage />} />
                 <Route path="/dashboard" element={<Protected user={user} loading={loading}><DashboardPage user={user} /></Protected>} />
+                <Route path="/workshop"  element={<Protected user={user} loading={loading}><WorkshopPage user={user} /></Protected>} />
                 <Route path="/skills"    element={<Protected user={user} loading={loading}><SkillsPage user={user} /></Protected>} />
                 <Route path="/skill/:skillId" element={<Protected user={user} loading={loading}><SkillDetailPage user={user} /></Protected>} />
                 <Route path="/admin"     element={<Protected user={user} loading={loading}><AdminPage user={user} /></Protected>} />
