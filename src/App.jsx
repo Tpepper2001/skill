@@ -982,7 +982,7 @@ function SkillsPage({ user }) {
   )
 }
 
-// ─── ADMIN PANEL (with stats and module management, filtered by creator unless admin) ───
+// ─── ADMIN PANEL (with file upload for modules) ──────────────────────────────
 function AdminPage({ user }) {
   const [tab, setTab] = useState('skills')
   const [skills, setSkills] = useState([])
@@ -996,7 +996,16 @@ function AdminPage({ user }) {
   const [deleting, setDeleting] = useState(null)
 
   // Module form state
-  const [moduleForm, setModuleForm] = useState({ title: '', description: '', content_type: 'video', content_url: '', order_index: 0 })
+  const [moduleForm, setModuleForm] = useState({
+    title: '',
+    description: '',
+    content_type: 'video',
+    content_url: '',
+    order_index: 0,
+    uploadMethod: 'url', // 'url' or 'file'
+    file: null,
+    uploading: false
+  })
   const [editingModuleId, setEditingModuleId] = useState(null)
   const [savingModule, setSavingModule] = useState(false)
 
@@ -1013,7 +1022,6 @@ function AdminPage({ user }) {
 
   const fetchSkills = useCallback(async () => {
     let query = supabase.from('skills').select('*').order('created_at', { ascending: false });
-    // If not admin, only show skills created by this user
     if (user?.email !== 'admin@example.com') {
       query = query.eq('created_by', user.id);
     }
@@ -1112,30 +1120,89 @@ function AdminPage({ user }) {
     setTab('add')
   }
 
+  // Helper to upload file to Supabase Storage
+  const uploadFile = async (file, skillId) => {
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${skillId}/${Date.now()}.${fileExt}`
+    const { data, error } = await supabase.storage
+      .from('skill-modules')
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false
+      })
+    if (error) throw error
+    const { data: { publicUrl } } = supabase.storage
+      .from('skill-modules')
+      .getPublicUrl(fileName)
+    return publicUrl
+  }
+
   const saveModule = async () => {
-    if (!moduleForm.title || !moduleForm.content_url) {
-      setMsg({ type:'error', text:'Title and URL are required.' }); return
+    if (!moduleForm.title) {
+      setMsg({ type:'error', text:'Title is required.' });
+      return;
     }
-    setSavingModule(true)
-    const payload = { ...moduleForm, skill_id: selectedSkill.id }
-    let error
-    if (editingModuleId) {
-      ({ error } = await supabase.from('skill_modules').update(payload).eq('id', editingModuleId))
+    if (moduleForm.uploadMethod === 'file') {
+      if (!moduleForm.file) {
+        setMsg({ type:'error', text:'Please select a file.' });
+        return;
+      }
+      if (moduleForm.file.size > 500 * 1024) {
+        setMsg({ type:'error', text:'File size exceeds 500KB. Please use a URL for larger files.' });
+        return;
+      }
     } else {
-      ({ error } = await supabase.from('skill_modules').insert([payload]))
+      if (!moduleForm.content_url) {
+        setMsg({ type:'error', text:'URL is required.' });
+        return;
+      }
     }
-    setSavingModule(false)
-    if (error) { setMsg({ type:'error', text: error.message }); return }
-    setMsg({ type:'success', text: editingModuleId ? 'Module updated!' : 'Module added!' })
-    setModuleForm({ title: '', description: '', content_type: 'video', content_url: '', order_index: 0 })
-    setEditingModuleId(null)
-    fetchModules(selectedSkill.id)
-    setTimeout(() => setMsg(null), 3000)
+
+    setSavingModule(true);
+    let finalUrl = moduleForm.content_url;
+    try {
+      if (moduleForm.uploadMethod === 'file') {
+        finalUrl = await uploadFile(moduleForm.file, selectedSkill.id);
+      }
+      const payload = {
+        title: moduleForm.title,
+        description: moduleForm.description,
+        content_type: moduleForm.content_type,
+        content_url: finalUrl,
+        order_index: moduleForm.order_index,
+        skill_id: selectedSkill.id
+      };
+      let error;
+      if (editingModuleId) {
+        ({ error } = await supabase.from('skill_modules').update(payload).eq('id', editingModuleId));
+      } else {
+        ({ error } = await supabase.from('skill_modules').insert([payload]));
+      }
+      if (error) throw error;
+      setMsg({ type:'success', text: editingModuleId ? 'Module updated!' : 'Module added!' });
+      setModuleForm({
+        title: '',
+        description: '',
+        content_type: 'video',
+        content_url: '',
+        order_index: 0,
+        uploadMethod: 'url',
+        file: null,
+        uploading: false
+      });
+      setEditingModuleId(null);
+      fetchModules(selectedSkill.id);
+    } catch (err) {
+      setMsg({ type:'error', text: err.message });
+    } finally {
+      setSavingModule(false);
+      setTimeout(() => setMsg(null), 3000);
+    }
   }
 
   const deleteModule = async (id) => {
-    await supabase.from('skill_modules').delete().eq('id', id)
-    fetchModules(selectedSkill.id)
+    await supabase.from('skill_modules').delete().eq('id', id);
+    fetchModules(selectedSkill.id);
   }
 
   const editModule = (mod) => {
@@ -1144,9 +1211,12 @@ function AdminPage({ user }) {
       description: mod.description || '',
       content_type: mod.content_type,
       content_url: mod.content_url,
-      order_index: mod.order_index
-    })
-    setEditingModuleId(mod.id)
+      order_index: mod.order_index,
+      uploadMethod: 'url',
+      file: null,
+      uploading: false
+    });
+    setEditingModuleId(mod.id);
   }
 
   if (loading || statsLoading) return <Spinner />
@@ -1307,9 +1377,73 @@ function AdminPage({ user }) {
                       <option value="audio">🎧 Audio</option>
                     </select>
                   </div>
+
+                  {/* Upload Method Selection */}
                   <div style={{ marginTop: 12 }}>
-                    <Input label="URL (YouTube, Google Drive, etc.)" value={moduleForm.content_url} onChange={e => setModuleForm({...moduleForm, content_url:e.target.value})} placeholder="https://..." />
+                    <label style={{ fontFamily: T.fontHead, fontSize: 13, color: T.textSec, display: 'block', marginBottom: 8 }}>Content Source</label>
+                    <div style={{ display:'flex', gap: 16 }}>
+                      <label style={{ display:'flex', alignItems:'center', gap: 6, cursor:'pointer' }}>
+                        <input
+                          type="radio"
+                          name="uploadMethod"
+                          value="url"
+                          checked={moduleForm.uploadMethod === 'url'}
+                          onChange={() => setModuleForm({...moduleForm, uploadMethod: 'url', file: null, content_url: ''})}
+                        />
+                        <span style={{ fontSize: 13 }}>URL / Embed Link</span>
+                      </label>
+                      <label style={{ display:'flex', alignItems:'center', gap: 6, cursor:'pointer' }}>
+                        <input
+                          type="radio"
+                          name="uploadMethod"
+                          value="file"
+                          checked={moduleForm.uploadMethod === 'file'}
+                          onChange={() => setModuleForm({...moduleForm, uploadMethod: 'file', content_url: ''})}
+                        />
+                        <span style={{ fontSize: 13 }}>Upload File (max 500KB)</span>
+                      </label>
+                    </div>
                   </div>
+
+                  {moduleForm.uploadMethod === 'url' ? (
+                    <div style={{ marginTop: 12 }}>
+                      <Input label="URL (YouTube, Google Drive, etc.)" value={moduleForm.content_url} onChange={e => setModuleForm({...moduleForm, content_url:e.target.value})} placeholder="https://..." />
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: 12 }}>
+                      <label style={{ fontFamily: T.fontHead, fontSize: 13, color: T.textSec, display: 'block', marginBottom: 6 }}>Upload File</label>
+                      <input
+                        type="file"
+                        accept="video/*,audio/*,application/pdf,image/*"
+                        onChange={e => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            if (file.size > 500 * 1024) {
+                              setMsg({ type:'error', text:'File exceeds 500KB. Please use a URL instead.' });
+                              e.target.value = '';
+                            } else {
+                              setModuleForm({...moduleForm, file: file});
+                              setMsg(null);
+                            }
+                          }
+                        }}
+                        style={{
+                          background: T.bgCard,
+                          border: `1.5px solid ${T.border}`,
+                          borderRadius: T.radiusSm,
+                          padding: '10px 12px',
+                          color: T.textPri,
+                          width: '100%'
+                        }}
+                      />
+                      {moduleForm.file && (
+                        <div style={{ fontSize: 12, color: T.textSec, marginTop: 4 }}>
+                          Selected: {moduleForm.file.name} ({(moduleForm.file.size / 1024).toFixed(1)} KB)
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div style={{ marginTop: 12 }}>
                     <Input label="Description (optional)" value={moduleForm.description} onChange={e => setModuleForm({...moduleForm, description:e.target.value})} placeholder="Brief description" />
                   </div>
@@ -1321,7 +1455,7 @@ function AdminPage({ user }) {
                       {savingModule ? 'Saving…' : (editingModuleId ? 'Update Module' : '+ Add Module')}
                     </Btn>
                     {editingModuleId && (
-                      <Btn variant="ghost" onClick={() => { setEditingModuleId(null); setModuleForm({ title: '', description: '', content_type: 'video', content_url: '', order_index: 0 }); }} style={{ marginLeft: 12 }}>
+                      <Btn variant="ghost" onClick={() => { setEditingModuleId(null); setModuleForm({ title: '', description: '', content_type: 'video', content_url: '', order_index: 0, uploadMethod: 'url', file: null, uploading: false }); }} style={{ marginLeft: 12 }}>
                         Cancel
                       </Btn>
                     )}
