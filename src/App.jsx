@@ -1483,62 +1483,116 @@ function AdminPage({ user }) {
   )
 }
 
-// =============================================
-// IMPROVED WORKSHOP PAGE (with refresh button and error handling)
-// =============================================
+// ─── IMPROVED WORKSHOP PAGE (with better error handling) ─────────────────────
 function WorkshopPage({ user }) {
   const [enrolledSkills, setEnrolledSkills] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [debug, setDebug] = useState(null)
   const [updatingProgress, setUpdatingProgress] = useState({})
   const [refreshing, setRefreshing] = useState(false)
 
   const fetchEnrolledSkills = useCallback(async () => {
     try {
       setError(null)
-      if (!user?.id) return
+      setDebug(null)
+      if (!user?.id) {
+        setError('No user found')
+        setLoading(false)
+        return
+      }
+
+      console.log('Fetching enrolled skills for user:', user.id)
+
+      // Step 1: Get user progress
       const { data: progressData, error: progError } = await supabase
         .from('user_progress')
         .select(`
           id,
           progress_pct,
           completed,
-          skills (
-            id,
-            title,
-            description,
-            category,
-            level,
-            duration
-          )
+          skill_id,
+          created_at
         `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
-      if (progError) throw progError
+      if (progError) {
+        console.error('Progress error:', progError)
+        throw new Error(`Progress fetch failed: ${progError.message}`)
+      }
 
+      console.log('Progress data:', progressData)
+
+      if (!progressData || progressData.length === 0) {
+        setEnrolledSkills([])
+        setLoading(false)
+        return
+      }
+
+      // Step 2: Get skill details for each progress entry
+      const skillIds = progressData.map(p => p.skill_id).filter(id => id)
+      
+      const { data: skillsData, error: skillsError } = await supabase
+        .from('skills')
+        .select('*')
+        .in('id', skillIds)
+
+      if (skillsError) {
+        console.error('Skills error:', skillsError)
+        throw new Error(`Skills fetch failed: ${skillsError.message}`)
+      }
+
+      console.log('Skills data:', skillsData)
+
+      // Create a map of skill by id
+      const skillsMap = {}
+      skillsData?.forEach(skill => {
+        skillsMap[skill.id] = skill
+      })
+
+      // Step 3: Get modules for each skill
       const skillsWithModules = await Promise.all(
-        (progressData || []).map(async (enrollment) => {
+        progressData.map(async (enrollment) => {
+          const skill = skillsMap[enrollment.skill_id]
+          if (!skill) {
+            console.warn(`Skill not found for ID: ${enrollment.skill_id}`)
+            return {
+              ...enrollment,
+              skill: null,
+              modules: []
+            }
+          }
+
           const { data: modules, error: modError } = await supabase
             .from('skill_modules')
             .select('id, title, content_type, content_url, order_index')
-            .eq('skill_id', enrollment.skills.id)
+            .eq('skill_id', enrollment.skill_id)
             .order('order_index', { ascending: true })
 
-          if (modError) console.error('Error fetching modules:', modError)
+          if (modError) {
+            console.error(`Error fetching modules for skill ${enrollment.skill_id}:`, modError)
+          }
 
           return {
-            ...enrollment,
-            skill: enrollment.skills,
+            id: enrollment.id,
+            progress_pct: enrollment.progress_pct,
+            completed: enrollment.completed,
+            skill: skill,
             modules: modules || []
           }
         })
       )
 
-      setEnrolledSkills(skillsWithModules)
+      // Filter out entries where skill is null (orphaned progress)
+      const validSkills = skillsWithModules.filter(item => item.skill !== null)
+      setEnrolledSkills(validSkills)
+      console.log('Final enrolled skills:', validSkills.length)
+
     } catch (err) {
       console.error('Error fetching enrolled skills:', err)
-      setError('Failed to load enrolled skills. Please try again.')
+      setError(err.message || 'Failed to load enrolled skills. Please try again.')
+      setDebug({ message: err.message, stack: err.stack })
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -1579,10 +1633,25 @@ function WorkshopPage({ user }) {
   if (loading) return <Spinner />
   if (error) return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 24px', textAlign: 'center' }}>
-      <Alert message={error} type="error" onClose={() => setError(null)} />
-      <Btn onClick={() => { setRefreshing(true); fetchEnrolledSkills(); }} disabled={refreshing} style={{ marginTop: 20 }}>
-        {refreshing ? 'Refreshing...' : 'Retry'}
-      </Btn>
+      <Card>
+        <Alert message={error} type="error" onClose={() => setError(null)} />
+        {debug && (
+          <details style={{ marginTop: 16, textAlign: 'left', background: T.bgMid, padding: 12, borderRadius: T.radiusSm }}>
+            <summary style={{ color: T.accent, cursor: 'pointer' }}>Debug Info</summary>
+            <pre style={{ fontSize: 11, color: T.textSec, overflowX: 'auto', marginTop: 8 }}>
+              {JSON.stringify(debug, null, 2)}
+            </pre>
+          </details>
+        )}
+        <div style={{ marginTop: 20, display: 'flex', gap: 12, justifyContent: 'center' }}>
+          <Btn onClick={() => { setRefreshing(true); fetchEnrolledSkills(); }} disabled={refreshing}>
+            {refreshing ? '⟳ Retrying...' : '⟳ Retry'}
+          </Btn>
+          <Link to="/skills">
+            <Btn variant="secondary">Browse Skills →</Btn>
+          </Link>
+        </div>
+      </Card>
     </div>
   )
 
@@ -1626,17 +1695,17 @@ function WorkshopPage({ user }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
                 <div style={{ flex: 1 }}>
                   <h2 style={{ fontFamily: T.fontHead, fontSize: 20, marginBottom: 8 }}>
-                    {enrollment.skill.title}
+                    {enrollment.skill?.title || 'Unknown Skill'}
                   </h2>
                   <p style={{ color: T.textSec, fontSize: 14, marginBottom: 12 }}>
-                    {enrollment.skill.description?.substring(0, 150)}...
+                    {enrollment.skill?.description?.substring(0, 150) || 'No description available.'}
                   </p>
                   <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
-                    <Badge color={T.accent}>{enrollment.skill.category || 'General'}</Badge>
-                    <Badge color={enrollment.skill.level === 'Advanced' ? T.red : enrollment.skill.level === 'Intermediate' ? T.gold : T.green}>
-                      {enrollment.skill.level || 'Beginner'}
+                    <Badge color={T.accent}>{enrollment.skill?.category || 'General'}</Badge>
+                    <Badge color={enrollment.skill?.level === 'Advanced' ? T.red : enrollment.skill?.level === 'Intermediate' ? T.gold : T.green}>
+                      {enrollment.skill?.level || 'Beginner'}
                     </Badge>
-                    {enrollment.skill.duration && (
+                    {enrollment.skill?.duration && (
                       <span style={{ fontSize: 12, color: T.textMut }}>⏱ {enrollment.skill.duration}</span>
                     )}
                   </div>
