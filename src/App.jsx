@@ -176,16 +176,15 @@ function RatingStars({ rating, onRate, readonly = false, size = 18 }) {
   )
 }
 
-// ─── NAVBAR (shows Admin only if user is trainer or superadmin) ─────────────
+// ─── NAVBAR (shows Manage Skills for all authenticated users) ─────────────
 function Navbar({ user, onSignOut }) {
   const location = useLocation()
-  const isTrainer = user?.user_metadata?.role === 'trainer' || user?.email === 'admin@example.com'
 
   const navLinks = user
     ? [
         { to:'/dashboard', label:'Dashboard' },
         { to:'/skills', label:'Skills' },
-        ...(isTrainer ? [{ to:'/admin', label:'Manage Skills' }] : [])
+        { to:'/admin', label:'Manage Skills' }   // All authenticated users can manage their own skills
       ]
     : [{ to:'/', label:'Home' }, { to:'/login', label:'Sign In' }]
 
@@ -274,7 +273,7 @@ function LandingPage() {
     { icon:'📚', title:'Structured Learning', desc:'Step-by-step learning paths guide your progress.' },
     { icon:'🔒', title:'Secure & Reliable', desc:'Your data is protected with enterprise-grade security.' },
     { icon:'📱', title:'Access Anywhere', desc:'Works seamlessly on desktop, tablet, and mobile.' },
-    { icon:'🚀', title:'Trainer Dashboard', desc:'Trainers can create and manage skills easily.' },
+    { icon:'🚀', title:'Admin Dashboard', desc:'Create and manage your own skills with ease.' },
     { icon:'🔄', title:'Real-Time Updates', desc:'Content changes reflect instantly across the platform.' },
     { icon:'🌱', title:'Growing Library', desc:'New skills added as the platform expands.' },
   ]
@@ -458,7 +457,7 @@ function LandingPage() {
   )
 }
 
-// ─── AUTH PAGES (with role selection) ────────────────────────────────────────
+// ─── AUTH PAGES ────────────────────────────────────────────────────────────────
 function AuthLayout({ children, title, subtitle }) {
   return (
     <div style={{
@@ -524,7 +523,6 @@ function SignupPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState('learner') // 'learner' or 'trainer'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -534,8 +532,7 @@ function SignupPage() {
     if (!name || !email || !password) { setError('Please fill in all fields.'); return }
     if (password.length < 6) { setError('Password must be at least 6 characters.'); return }
     setLoading(true)
-    // Pass role in metadata
-    const { error: err } = await signUp(email, password, name, { role })
+    const { error: err } = await signUp(email, password, name)
     setLoading(false)
     if (err) { setError(err.message); return }
     setSuccess(true)
@@ -560,35 +557,6 @@ function SignupPage() {
         <Input label="Full Name" value={name} onChange={e => setName(e.target.value)} placeholder="Jane Doe" />
         <Input label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
         <Input label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Min. 6 characters" />
-        
-        <div style={{ display:'flex', flexDirection:'column', gap: 6 }}>
-          <label style={{ fontFamily: T.fontHead, fontSize: 13, color: T.textSec, letterSpacing:'0.04em' }}>I want to be a...</label>
-          <div style={{ display:'flex', gap: 24 }}>
-            <label style={{ display:'flex', alignItems:'center', gap: 8, cursor:'pointer' }}>
-              <input
-                type="radio"
-                name="role"
-                value="learner"
-                checked={role === 'learner'}
-                onChange={() => setRole('learner')}
-                style={{ width: 16, height: 16, cursor:'pointer' }}
-              />
-              <span style={{ fontSize: 14 }}>Learner (enroll in courses)</span>
-            </label>
-            <label style={{ display:'flex', alignItems:'center', gap: 8, cursor:'pointer' }}>
-              <input
-                type="radio"
-                name="role"
-                value="trainer"
-                checked={role === 'trainer'}
-                onChange={() => setRole('trainer')}
-                style={{ width: 16, height: 16, cursor:'pointer' }}
-              />
-              <span style={{ fontSize: 14 }}>Trainer (create and manage courses)</span>
-            </label>
-          </div>
-        </div>
-
         <Btn onClick={handleSubmit} disabled={loading} style={{ width:'100%', justifyContent:'center' }}>
           {loading ? 'Creating account…' : 'Create Account'}
         </Btn>
@@ -744,7 +712,6 @@ function SkillDetailPage({ user }) {
       const { data: skillData } = await supabase.from('skills').select('*').eq('id', skillId).single()
       setSkill(skillData)
 
-      // Fetch modules for this skill
       const { data: modulesData } = await supabase
         .from('skill_modules')
         .select('*')
@@ -848,7 +815,6 @@ function SkillDetailPage({ user }) {
         </div>
       </Card>
 
-      {/* Modules Section */}
       {modules.length > 0 && (
         <Card style={{ marginBottom: 32 }}>
           <h2 style={{ fontFamily: T.fontHead, fontSize: 20, marginBottom: 16 }}>📚 Course Modules</h2>
@@ -869,7 +835,6 @@ function SkillDetailPage({ user }) {
         </Card>
       )}
 
-      {/* Reviews Section */}
       <Card>
         <h2 style={{ fontFamily: T.fontHead, fontSize: 20, marginBottom: 16 }}>Reviews</h2>
         {user && (
@@ -1017,7 +982,7 @@ function SkillsPage({ user }) {
   )
 }
 
-// ─── ADMIN PANEL (with skill and module management) ──────────────────────────
+// ─── ADMIN PANEL (with stats and module management, filtered by creator unless admin) ───
 function AdminPage({ user }) {
   const [tab, setTab] = useState('skills')
   const [skills, setSkills] = useState([])
@@ -1035,10 +1000,26 @@ function AdminPage({ user }) {
   const [editingModuleId, setEditingModuleId] = useState(null)
   const [savingModule, setSavingModule] = useState(false)
 
+  // Stats state
+  const [stats, setStats] = useState({
+    totalSkills: 0,
+    totalUsers: 0,
+    totalEnrollments: 0,
+    totalReviews: 0,
+    recentSkills: [],
+    recentEnrollments: []
+  })
+  const [statsLoading, setStatsLoading] = useState(true)
+
   const fetchSkills = useCallback(async () => {
-    const { data } = await supabase.from('skills').select('*').order('created_at', { ascending:false })
-    setSkills(data || [])
-  }, [])
+    let query = supabase.from('skills').select('*').order('created_at', { ascending: false });
+    // If not admin, only show skills created by this user
+    if (user?.email !== 'admin@example.com') {
+      query = query.eq('created_by', user.id);
+    }
+    const { data } = await query;
+    setSkills(data || []);
+  }, [user]);
 
   const fetchModules = useCallback(async (skillId) => {
     if (!skillId) return
@@ -1046,9 +1027,42 @@ function AdminPage({ user }) {
     setModules(data || [])
   }, [])
 
+  const fetchStats = useCallback(async () => {
+    try {
+      const [
+        { count: totalSkills },
+        { count: totalUsers },
+        { count: totalEnrollments },
+        { count: totalReviews },
+        { data: recentSkillsData },
+        { data: recentEnrollmentsData }
+      ] = await Promise.all([
+        supabase.from('skills').select('*', { count: 'exact', head: true }),
+        supabase.from('users').select('*', { count: 'exact', head: true }),
+        supabase.from('user_progress').select('*', { count: 'exact', head: true }),
+        supabase.from('reviews').select('*', { count: 'exact', head: true }),
+        supabase.from('skills').select('title, created_at').order('created_at', { ascending: false }).limit(5),
+        supabase.from('user_progress').select('skills(title), created_at').order('created_at', { ascending: false }).limit(5)
+      ])
+      setStats({
+        totalSkills: totalSkills || 0,
+        totalUsers: totalUsers || 0,
+        totalEnrollments: totalEnrollments || 0,
+        totalReviews: totalReviews || 0,
+        recentSkills: recentSkillsData || [],
+        recentEnrollments: recentEnrollmentsData || []
+      })
+    } catch (err) {
+      console.error('Error fetching stats:', err)
+    } finally {
+      setStatsLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     fetchSkills().then(() => setLoading(false))
-  }, [fetchSkills])
+    fetchStats()
+  }, [fetchSkills, fetchStats])
 
   useEffect(() => {
     if (selectedSkill) {
@@ -1073,6 +1087,7 @@ function AdminPage({ user }) {
     setForm({ title:'', description:'', category:'', level:'Beginner', duration:'' })
     setEditingId(null)
     fetchSkills()
+    fetchStats()
     setTimeout(() => setMsg(null), 3000)
   }
 
@@ -1081,6 +1096,7 @@ function AdminPage({ user }) {
     await supabase.from('skills').delete().eq('id', id)
     setDeleting(null)
     fetchSkills()
+    fetchStats()
     if (selectedSkill?.id === id) setSelectedSkill(null)
   }
 
@@ -1096,7 +1112,6 @@ function AdminPage({ user }) {
     setTab('add')
   }
 
-  // Module CRUD
   const saveModule = async () => {
     if (!moduleForm.title || !moduleForm.content_url) {
       setMsg({ type:'error', text:'Title and URL are required.' }); return
@@ -1134,21 +1149,78 @@ function AdminPage({ user }) {
     setEditingModuleId(mod.id)
   }
 
-  if (loading) return <Spinner />
-  if (!user || (user.user_metadata?.role !== 'trainer' && user.email !== 'admin@example.com')) {
-    return <Navigate to="/dashboard" replace />
-  }
+  if (loading || statsLoading) return <Spinner />
+  if (!user) return <Navigate to="/login" replace />
 
   return (
     <div style={{ maxWidth:1100, margin:'0 auto', padding:'40px 24px' }}>
       <div style={{ marginBottom:32, display:'flex', alignItems:'center', gap:14 }}>
         <div>
-          <h1 style={{ fontFamily:T.fontHead, fontWeight:700, fontSize:28, letterSpacing:'-0.03em' }}>Manage Skills</h1>
-          <p style={{ color:T.textSec, marginTop:4 }}>Create, edit, or remove skills and their modules.</p>
+          <h1 style={{ fontFamily:T.fontHead, fontWeight:700, fontSize:28, letterSpacing:'-0.03em' }}>Admin Dashboard</h1>
+          <p style={{ color:T.textSec, marginTop:4 }}>Overview and management of your skills.</p>
         </div>
-        <Badge color={T.gold}>{user.user_metadata?.role === 'trainer' ? 'Trainer' : 'Admin'}</Badge>
+        <Badge color={T.gold}>Dashboard</Badge>
       </div>
 
+      {/* Stats Cards */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:16, marginBottom:32 }}>
+        <Card style={{ textAlign:'center', padding:'20px' }}>
+          <div style={{ fontSize:28, marginBottom:8 }}>📚</div>
+          <div style={{ fontSize:32, fontWeight:700, color:T.accent }}>{stats.totalSkills}</div>
+          <div style={{ color:T.textSec, fontSize:13 }}>Total Skills</div>
+        </Card>
+        <Card style={{ textAlign:'center', padding:'20px' }}>
+          <div style={{ fontSize:28, marginBottom:8 }}>👥</div>
+          <div style={{ fontSize:32, fontWeight:700, color:T.accent }}>{stats.totalUsers}</div>
+          <div style={{ color:T.textSec, fontSize:13 }}>Total Users</div>
+        </Card>
+        <Card style={{ textAlign:'center', padding:'20px' }}>
+          <div style={{ fontSize:28, marginBottom:8 }}>📖</div>
+          <div style={{ fontSize:32, fontWeight:700, color:T.accent }}>{stats.totalEnrollments}</div>
+          <div style={{ color:T.textSec, fontSize:13 }}>Enrollments</div>
+        </Card>
+        <Card style={{ textAlign:'center', padding:'20px' }}>
+          <div style={{ fontSize:28, marginBottom:8 }}>⭐</div>
+          <div style={{ fontSize:32, fontWeight:700, color:T.accent }}>{stats.totalReviews}</div>
+          <div style={{ color:T.textSec, fontSize:13 }}>Reviews</div>
+        </Card>
+      </div>
+
+      {/* Recent Activity */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:24, marginBottom:32 }}>
+        <Card>
+          <h2 style={{ fontFamily:T.fontHead, fontSize:18, marginBottom:16 }}>📅 Recent Skills</h2>
+          {stats.recentSkills.length === 0 ? (
+            <p style={{ color:T.textSec }}>No skills yet.</p>
+          ) : (
+            <ul style={{ listStyle:'none', padding:0 }}>
+              {stats.recentSkills.map(s => (
+                <li key={s.created_at} style={{ padding:'8px 0', borderBottom:`1px solid ${T.border}` }}>
+                  {s.title}
+                  <span style={{ fontSize:11, color:T.textMut, marginLeft:8 }}>{new Date(s.created_at).toLocaleDateString()}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+        <Card>
+          <h2 style={{ fontFamily:T.fontHead, fontSize:18, marginBottom:16 }}>🔄 Recent Enrollments</h2>
+          {stats.recentEnrollments.length === 0 ? (
+            <p style={{ color:T.textSec }}>No enrollments yet.</p>
+          ) : (
+            <ul style={{ listStyle:'none', padding:0 }}>
+              {stats.recentEnrollments.map(e => (
+                <li key={e.created_at} style={{ padding:'8px 0', borderBottom:`1px solid ${T.border}` }}>
+                  {e.skills?.title || 'Unknown skill'}
+                  <span style={{ fontSize:11, color:T.textMut, marginLeft:8 }}>{new Date(e.created_at).toLocaleDateString()}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+
+      {/* Admin tabs */}
       <div style={{ display:'flex', gap:4, marginBottom:28, borderBottom:`1px solid ${T.border}`, paddingBottom:0 }}>
         {['skills', 'add', 'modules'].map(t => (
           <button key={t} onClick={() => { setTab(t); if (t === 'add') setEditingId(null); setForm({ title:'', description:'', category:'', level:'Beginner', duration:'' }); }} style={{
@@ -1167,8 +1239,8 @@ function AdminPage({ user }) {
 
       {tab === 'skills' && (
         <Card>
-          <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:16, marginBottom:20 }}>All Skills ({skills.length})</h2>
-          {skills.length === 0 ? <p>No skills yet.</p> : (
+          <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:16, marginBottom:20 }}>Your Skills ({skills.length})</h2>
+          {skills.length === 0 ? <p>No skills yet. Click "Add Skill" to create your first skill.</p> : (
             <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
               {skills.map(s => (
                 <div key={s.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 0', borderBottom:`1px solid ${T.border}` }}>
@@ -1353,7 +1425,7 @@ async function seedSkillsIfNeeded() {
   console.log('Seeded 50+ skills')
 }
 
-// ─── PROTECTED ROUTE (with optional role check) ──────────────────────────────
+// ─── PROTECTED ROUTE (no role checks) ────────────────────────────────────────
 function Protected({ user, loading, children }) {
   if (loading) return <Spinner />
   if (!user) return <Navigate to="/login" replace />
