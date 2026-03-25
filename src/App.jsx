@@ -1483,15 +1483,21 @@ function AdminPage({ user }) {
   )
 }
 
-// ─── WORKSHOP PAGE (new) ─────────────────────────────────────────────────────
+// =============================================
+// IMPROVED WORKSHOP PAGE (with refresh button and error handling)
+// =============================================
 function WorkshopPage({ user }) {
   const [enrolledSkills, setEnrolledSkills] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [updatingProgress, setUpdatingProgress] = useState({})
+  const [refreshing, setRefreshing] = useState(false)
 
-  useEffect(() => {
-    const fetchEnrolledSkills = async () => {
-      const { data: progressData, error } = await supabase
+  const fetchEnrolledSkills = useCallback(async () => {
+    try {
+      setError(null)
+      if (!user?.id) return
+      const { data: progressData, error: progError } = await supabase
         .from('user_progress')
         .select(`
           id,
@@ -1509,11 +1515,7 @@ function WorkshopPage({ user }) {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
-      if (error) {
-        console.error('Error fetching enrolled skills:', error)
-        setLoading(false)
-        return
-      }
+      if (progError) throw progError
 
       const skillsWithModules = await Promise.all(
         (progressData || []).map(async (enrollment) => {
@@ -1534,11 +1536,18 @@ function WorkshopPage({ user }) {
       )
 
       setEnrolledSkills(skillsWithModules)
+    } catch (err) {
+      console.error('Error fetching enrolled skills:', err)
+      setError('Failed to load enrolled skills. Please try again.')
+    } finally {
       setLoading(false)
+      setRefreshing(false)
     }
+  }, [user?.id])
 
+  useEffect(() => {
     fetchEnrolledSkills()
-  }, [user.id])
+  }, [fetchEnrolledSkills])
 
   const updateProgress = async (enrollmentId, newProgress) => {
     setUpdatingProgress(prev => ({ ...prev, [enrollmentId]: true }))
@@ -1568,16 +1577,34 @@ function WorkshopPage({ user }) {
   }
 
   if (loading) return <Spinner />
+  if (error) return (
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 24px', textAlign: 'center' }}>
+      <Alert message={error} type="error" onClose={() => setError(null)} />
+      <Btn onClick={() => { setRefreshing(true); fetchEnrolledSkills(); }} disabled={refreshing} style={{ marginTop: 20 }}>
+        {refreshing ? 'Refreshing...' : 'Retry'}
+      </Btn>
+    </div>
+  )
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 24px' }}>
-      <div style={{ marginBottom: 36 }}>
-        <h1 style={{ fontFamily: T.fontHead, fontWeight: 700, fontSize: 28, letterSpacing: '-0.03em' }}>
-          Your Workshop
-        </h1>
-        <p style={{ color: T.textSec, marginTop: 6 }}>
-          Continue where you left off. Track your progress and access course materials.
-        </p>
+      <div style={{ marginBottom: 36, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1 style={{ fontFamily: T.fontHead, fontWeight: 700, fontSize: 28, letterSpacing: '-0.03em' }}>
+            Your Workshop
+          </h1>
+          <p style={{ color: T.textSec, marginTop: 6 }}>
+            Continue where you left off. Track your progress and access course materials.
+          </p>
+        </div>
+        <Btn
+          small
+          variant="secondary"
+          onClick={() => { setRefreshing(true); fetchEnrolledSkills(); }}
+          disabled={refreshing}
+        >
+          {refreshing ? '⟳ Refreshing...' : '⟳ Refresh'}
+        </Btn>
       </div>
 
       {enrolledSkills.length === 0 ? (
@@ -1689,7 +1716,6 @@ function WorkshopPage({ user }) {
     </div>
   )
 }
-
 // ─── SEED SKILLS (unchanged) ─────────────────────────────────────────────────
 async function seedSkillsIfNeeded() {
   const { count } = await supabase.from('skills').select('*', { count: 'exact', head: true })
