@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { BrowserRouter, Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Link, useNavigate, useLocation, Navigate, useParams } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import { supabase } from './lib/supabase'
 
@@ -26,7 +26,7 @@ const T = {
   shadowGlow:'0 0 30px rgba(56,189,248,0.12)',
 }
 
-// ─── GLOBAL RESET ─────────────────────────────────────────────────────────────
+// ─── GLOBAL STYLES + ANIMATIONS ──────────────────────────────────────────────
 const globalStyle = document.createElement('style')
 globalStyle.textContent = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -41,11 +41,15 @@ globalStyle.textContent = `
   @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+  @keyframes slideIn { from { opacity:0; transform:translateX(-10px); } to { opacity:1; transform:translateX(0); } }
+  .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+  .card-hover:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,0.5); }
+  .fade-up { animation: fadeUp 0.5s ease both; }
+  .stagger-item { animation: fadeUp 0.4s ease both; }
 `
 document.head.appendChild(globalStyle)
 
 // ─── SHARED COMPONENTS ────────────────────────────────────────────────────────
-
 function Spinner() {
   return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh' }}>
@@ -104,14 +108,16 @@ function Input({ label, type='text', value, onChange, placeholder, error }) {
   )
 }
 
-function Card({ children, style={}, glow=false }) {
+function Card({ children, style={}, glow=false, hover=false }) {
   return (
     <div style={{
       background: T.bgCard, border: `1px solid ${T.border}`,
       borderRadius: T.radius, padding: 24,
       boxShadow: glow ? T.shadowGlow : T.shadow,
+      transition: 'transform 0.2s, box-shadow 0.2s',
+      ...(hover ? { cursor: 'pointer', ':hover': { transform: 'translateY(-4px)' } } : {}),
       ...style
-    }}>
+    }} className={hover ? 'card-hover' : ''}>
       {children}
     </div>
   )
@@ -147,13 +153,37 @@ function Alert({ message, type='error', onClose }) {
   )
 }
 
+// ─── RATING STARS ─────────────────────────────────────────────────────────────
+function RatingStars({ rating, onRate, readonly = false, size = 18 }) {
+  const [hover, setHover] = useState(0)
+  const stars = [1,2,3,4,5]
+  return (
+    <div style={{ display:'flex', gap: 4 }}>
+      {stars.map(star => (
+        <span
+          key={star}
+          onClick={() => !readonly && onRate?.(star)}
+          onMouseEnter={() => !readonly && setHover(star)}
+          onMouseLeave={() => !readonly && setHover(0)}
+          style={{
+            fontSize: size,
+            cursor: readonly ? 'default' : 'pointer',
+            color: (hover || rating) >= star ? T.gold : T.textMut,
+            transition: 'transform 0.1s'
+          }}
+        >★</span>
+      ))}
+    </div>
+  )
+}
+
 // ─── NAVBAR ───────────────────────────────────────────────────────────────────
 function Navbar({ user, onSignOut }) {
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const navLinks = user
-    ? [{ to:'/dashboard', label:'Dashboard' }, { to:'/skills', label:'Skills' }, { to:'/admin', label:'Admin' }]
+    ? [{ to:'/dashboard', label:'Dashboard' }, { to:'/skills', label:'Skills' }, ...(user.email === 'admin@example.com' ? [{ to:'/admin', label:'Admin' }] : [])]
     : [{ to:'/', label:'Home' }, { to:'/login', label:'Sign In' }]
 
   return (
@@ -193,7 +223,7 @@ function Navbar({ user, onSignOut }) {
   )
 }
 
-// ─── LANDING PAGE ─────────────────────────────────────────────────────────────
+// ─── LANDING PAGE (with added animation) ──────────────────────────────────────
 function LandingPage() {
   const navigate = useNavigate()
 
@@ -205,7 +235,7 @@ function LandingPage() {
     { icon:'📱', title:'Access Anywhere', desc:'Works seamlessly on desktop, tablet, and mobile.' },
     { icon:'🚀', title:'Admin Control Panel', desc:'Powerful dashboard for managing platform content.' },
     { icon:'🔄', title:'Real-Time Updates', desc:'Content changes reflect instantly across the platform.' },
-    { icon:'🌱', title:'Growing Library', desc:'New skills and content added as the platform expands.' },
+    { icon:'🌱', title:'Growing Library', desc:'New skills added as the platform expands.' },
   ]
 
   const stats = [
@@ -223,7 +253,6 @@ function LandingPage() {
         alignItems:'center', justifyContent:'center', textAlign:'center',
         padding: '80px 24px', position:'relative', overflow:'hidden'
       }}>
-        {/* background glow */}
         <div style={{
           position:'absolute', top:'20%', left:'50%', transform:'translateX(-50%)',
           width: 600, height: 600, borderRadius:'50%',
@@ -232,7 +261,7 @@ function LandingPage() {
         }} />
 
         <div style={{ animation: 'fadeUp 0.7s ease both', maxWidth: 760 }}>
-          <Badge color={T.accent}>🚀 Version 1.0 — Now Live</Badge>
+          <Badge color={T.accent}>🚀 Version 2.0 — Now with Reviews & 50+ Skills</Badge>
           <h1 style={{
             fontFamily: T.fontHead, fontWeight: 800, letterSpacing: '-0.04em',
             fontSize: 'clamp(38px, 7vw, 76px)', lineHeight: 1.05,
@@ -277,8 +306,8 @@ function LandingPage() {
             <p style={{ color: T.textSec, marginTop: 12, fontSize: 16 }}>20 standout features designed around real learners.</p>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap: 20 }}>
-            {features.map(f => (
-              <Card key={f.title} style={{ padding: 20 }}>
+            {features.map((f, i) => (
+              <Card key={f.title} style={{ padding: 20, animation: `fadeUp 0.5s ease both ${i * 0.05}s` }}>
                 <div style={{ fontSize: 28, marginBottom: 12 }}>{f.icon}</div>
                 <h3 style={{ fontFamily: T.fontHead, fontWeight: 600, fontSize: 15, marginBottom: 8 }}>{f.title}</h3>
                 <p style={{ color: T.textSec, fontSize: 13, lineHeight: 1.6 }}>{f.desc}</p>
@@ -425,20 +454,23 @@ function SignupPage() {
   )
 }
 
-// ─── DASHBOARD ────────────────────────────────────────────────────────────────
+// ─── DASHBOARD (improved) ─────────────────────────────────────────────────────
 function DashboardPage({ user }) {
   const [skills, setSkills] = useState([])
   const [progress, setProgress] = useState([])
+  const [reviews, setReviews] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchData = async () => {
-      const [{ data: s }, { data: p }] = await Promise.all([
-        supabase.from('skills').select('*').limit(6).order('created_at', { ascending: false }),
-        supabase.from('user_progress').select('*, skills(title)').eq('user_id', user.id).limit(5)
+      const [{ data: s }, { data: p }, { data: r }] = await Promise.all([
+        supabase.from('skills').select('*').limit(8).order('created_at', { ascending: false }),
+        supabase.from('user_progress').select('*, skills(title, id)').eq('user_id', user.id),
+        supabase.from('reviews').select('*, skills(title)').eq('user_id', user.id).order('created_at', { ascending: false }).limit(3)
       ])
       setSkills(s || [])
       setProgress(p || [])
+      setReviews(r || [])
       setLoading(false)
     }
     fetchData()
@@ -448,12 +480,17 @@ function DashboardPage({ user }) {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
 
+  const totalProgress = progress.length
+  const completed = progress.filter(p => p.completed).length
+  const inProgress = totalProgress - completed
+  const avgProgress = totalProgress ? Math.round(progress.reduce((acc, p) => acc + (p.progress_pct || 0), 0) / totalProgress) : 0
+
   if (loading) return <Spinner />
 
   return (
     <div style={{ maxWidth:1100, margin:'0 auto', padding:'40px 24px' }}>
       {/* Header */}
-      <div style={{ marginBottom: 36 }}>
+      <div style={{ marginBottom: 36, animation: 'fadeUp 0.4s ease' }}>
         <h1 style={{ fontFamily:T.fontHead, fontWeight:700, fontSize:28, letterSpacing:'-0.03em' }}>
           {greeting}, <span style={{ color:T.accent }}>{displayName}</span> 👋
         </h1>
@@ -463,10 +500,10 @@ function DashboardPage({ user }) {
       {/* Stats row */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(180px,1fr))', gap:16, marginBottom:36 }}>
         {[
-          { label:'Skills Enrolled', value: progress.length, icon:'📚', color:T.accent },
-          { label:'Completed', value: progress.filter(p => p.completed).length, icon:'✅', color:T.green },
-          { label:'In Progress', value: progress.filter(p => !p.completed).length, icon:'⚡', color:T.gold },
-          { label:'Available Skills', value: skills.length, icon:'🎯', color:'#A78BFA' },
+          { label:'Skills Enrolled', value: totalProgress, icon:'📚', color:T.accent },
+          { label:'Completed', value: completed, icon:'✅', color:T.green },
+          { label:'In Progress', value: inProgress, icon:'⚡', color:T.gold },
+          { label:'Avg Progress', value: `${avgProgress}%`, icon:'📊', color:'#A78BFA' },
         ].map(s => (
           <Card key={s.label} style={{ padding:'20px', textAlign:'center' }}>
             <div style={{ fontSize:28, marginBottom:8 }}>{s.icon}</div>
@@ -477,45 +514,20 @@ function DashboardPage({ user }) {
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:24 }}>
-        {/* Recent Skills */}
+        {/* Enrolled Skills with Progress */}
         <Card>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-            <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:16 }}>Recent Skills</h2>
-            <Link to="/skills" style={{ fontSize:13, color:T.accent }}>View all →</Link>
+            <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:16 }}>My Enrolled Skills</h2>
+            <Link to="/skills" style={{ fontSize:13, color:T.accent }}>Browse more →</Link>
           </div>
-          {skills.length === 0
-            ? <p style={{ color:T.textSec, fontSize:14 }}>No skills yet. Check back soon!</p>
-            : skills.map(s => (
-              <div key={s.id} style={{
-                display:'flex', alignItems:'center', justifyContent:'space-between',
-                padding:'12px 0', borderBottom:`1px solid ${T.border}`
-              }}>
-                <div>
-                  <div style={{ fontWeight:500, fontSize:14 }}>{s.title}</div>
-                  <div style={{ color:T.textSec, fontSize:12, marginTop:2 }}>{s.category}</div>
-                </div>
-                <Badge color={s.level === 'Advanced' ? T.red : s.level === 'Intermediate' ? T.gold : T.green}>
-                  {s.level || 'Beginner'}
-                </Badge>
-              </div>
-            ))
-          }
-        </Card>
-
-        {/* My Progress */}
-        <Card>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-            <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:16 }}>My Progress</h2>
-          </div>
-          {progress.length === 0
-            ? (
-              <div style={{ textAlign:'center', padding:'24px 0' }}>
-                <div style={{ fontSize:36, marginBottom:12 }}>🌱</div>
-                <p style={{ color:T.textSec, fontSize:14 }}>You haven't started any skills yet.</p>
-                <Link to="/skills" style={{ color:T.accent, fontSize:13, marginTop:8, display:'inline-block' }}>Browse Skills →</Link>
-              </div>
-            )
-            : progress.map(p => (
+          {progress.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'24px 0' }}>
+              <div style={{ fontSize:36, marginBottom:12 }}>🌱</div>
+              <p style={{ color:T.textSec, fontSize:14 }}>You haven't enrolled in any skills yet.</p>
+              <Link to="/skills" style={{ color:T.accent, fontSize:13, marginTop:8, display:'inline-block' }}>Start Learning →</Link>
+            </div>
+          ) : (
+            progress.map(p => (
               <div key={p.id} style={{ padding:'12px 0', borderBottom:`1px solid ${T.border}` }}>
                 <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
                   <span style={{ fontSize:14, fontWeight:500 }}>{p.skills?.title || 'Skill'}</span>
@@ -526,14 +538,196 @@ function DashboardPage({ user }) {
                 </div>
               </div>
             ))
-          }
+          )}
         </Card>
+
+        {/* Recent Reviews */}
+        <Card>
+          <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:16, marginBottom:20 }}>Your Recent Reviews</h2>
+          {reviews.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'24px 0' }}>
+              <div style={{ fontSize:36, marginBottom:12 }}>✍️</div>
+              <p style={{ color:T.textSec, fontSize:14 }}>You haven't written any reviews yet.</p>
+              <Link to="/skills" style={{ color:T.accent, fontSize:13, marginTop:8, display:'inline-block' }}>Rate a skill →</Link>
+            </div>
+          ) : (
+            reviews.map(r => (
+              <div key={r.id} style={{ padding:'12px 0', borderBottom:`1px solid ${T.border}` }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <span style={{ fontSize:14, fontWeight:500 }}>{r.skills?.title}</span>
+                  <RatingStars rating={r.rating} readonly size={14} />
+                </div>
+                <p style={{ color:T.textSec, fontSize:12, marginTop:4 }}>{r.comment?.substring(0, 60)}...</p>
+              </div>
+            ))
+          )}
+        </Card>
+      </div>
+
+      {/* Recommended Skills */}
+      <div style={{ marginTop: 36 }}>
+        <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:18, marginBottom:16 }}>🔥 Recommended for you</h2>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap:20 }}>
+          {skills.slice(0, 4).map(skill => (
+            <Card key={skill.id} hover style={{ padding: 16 }}>
+              <h3 style={{ fontSize:16, fontWeight:600 }}>{skill.title}</h3>
+              <p style={{ fontSize:12, color:T.textSec, marginTop:4 }}>{skill.category}</p>
+              <Link to={`/skill/${skill.id}`} style={{ fontSize:12, color:T.accent, marginTop:12, display:'inline-block' }}>View →</Link>
+            </Card>
+          ))}
+        </div>
       </div>
     </div>
   )
 }
 
-// ─── SKILLS BROWSER ───────────────────────────────────────────────────────────
+// ─── SKILL DETAIL WITH REVIEWS ───────────────────────────────────────────────
+function SkillDetailPage({ user }) {
+  const { skillId } = useParams()
+  const [skill, setSkill] = useState(null)
+  const [reviews, setReviews] = useState([])
+  const [avgRating, setAvgRating] = useState(0)
+  const [userRating, setUserRating] = useState(null)
+  const [userComment, setUserComment] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [message, setMessage] = useState('')
+  const [enrolled, setEnrolled] = useState(false)
+  const [progress, setProgress] = useState(null)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true)
+      const { data: skillData } = await supabase.from('skills').select('*').eq('id', skillId).single()
+      setSkill(skillData)
+
+      const { data: reviewsData } = await supabase.from('reviews').select('*, users(email)').eq('skill_id', skillId).order('created_at', { ascending: false })
+      setReviews(reviewsData || [])
+      const avg = reviewsData?.length ? (reviewsData.reduce((sum, r) => sum + r.rating, 0) / reviewsData.length).toFixed(1) : 0
+      setAvgRating(avg)
+
+      if (user) {
+        const { data: prog } = await supabase.from('user_progress').select('*').eq('user_id', user.id).eq('skill_id', skillId).maybeSingle()
+        setEnrolled(!!prog)
+        setProgress(prog)
+
+        const { data: myReview } = await supabase.from('reviews').select('*').eq('user_id', user.id).eq('skill_id', skillId).maybeSingle()
+        if (myReview) {
+          setUserRating(myReview.rating)
+          setUserComment(myReview.comment || '')
+        }
+      }
+      setLoading(false)
+    }
+    fetchData()
+  }, [skillId, user])
+
+  const enroll = async () => {
+    const { error } = await supabase.from('user_progress').upsert({ user_id: user.id, skill_id: skillId, progress_pct: 0, completed: false })
+    if (!error) setEnrolled(true)
+    else setMessage('Enrollment failed')
+  }
+
+  const updateProgress = async (newPct) => {
+    const { error } = await supabase.from('user_progress').update({ progress_pct: newPct, completed: newPct >= 100 }).eq('id', progress.id)
+    if (!error) setProgress({ ...progress, progress_pct: newPct, completed: newPct >= 100 })
+  }
+
+  const submitReview = async () => {
+    if (!userRating) { setMessage('Please select a rating'); return }
+    setSubmitting(true)
+    const { error } = await supabase.from('reviews').upsert({
+      user_id: user.id,
+      skill_id: skillId,
+      rating: userRating,
+      comment: userComment,
+    }, { onConflict: 'user_id, skill_id' })
+    if (!error) {
+      setMessage('Review saved!')
+      // refresh reviews
+      const { data } = await supabase.from('reviews').select('*, users(email)').eq('skill_id', skillId).order('created_at', { ascending: false })
+      setReviews(data || [])
+    } else setMessage('Error saving review')
+    setSubmitting(false)
+    setTimeout(() => setMessage(''), 3000)
+  }
+
+  if (loading) return <Spinner />
+  if (!skill) return <div style={{ padding: 40, textAlign:'center' }}>Skill not found.</div>
+
+  return (
+    <div style={{ maxWidth: 1000, margin:'0 auto', padding: '40px 24px' }}>
+      <Link to="/skills" style={{ color: T.accent, fontSize: 14, marginBottom: 16, display:'inline-block' }}>← Back to Skills</Link>
+      <Card style={{ marginBottom: 32 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'start', flexWrap:'wrap', gap: 12 }}>
+          <div>
+            <Badge color={T.accent}>{skill.category || 'General'}</Badge>
+            <h1 style={{ fontFamily: T.fontHead, fontSize: 32, marginTop: 12 }}>{skill.title}</h1>
+            <p style={{ color: T.textSec, marginTop: 8 }}>{skill.description}</p>
+            <div style={{ marginTop: 12, display:'flex', gap: 16, alignItems:'center' }}>
+              <Badge color={skill.level === 'Advanced' ? T.red : skill.level === 'Intermediate' ? T.gold : T.green}>
+                {skill.level || 'Beginner'}
+              </Badge>
+              {skill.duration && <span style={{ fontSize:13, color:T.textMut }}>⏱ {skill.duration}</span>}
+              <div style={{ display:'flex', alignItems:'center', gap: 6 }}>
+                <RatingStars rating={avgRating} readonly size={16} />
+                <span style={{ fontSize:13, color:T.textSec }}>({reviews.length})</span>
+              </div>
+            </div>
+          </div>
+          {user && !enrolled ? (
+            <Btn onClick={enroll}>Enroll Now</Btn>
+          ) : enrolled && progress && (
+            <div style={{ width: 200 }}>
+              <div style={{ fontSize:13, marginBottom: 6 }}>Your progress: {progress.progress_pct}%</div>
+              <input
+                type="range" min="0" max="100" value={progress.progress_pct || 0}
+                onChange={e => updateProgress(parseInt(e.target.value))}
+                style={{ width:'100%' }}
+              />
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Reviews Section */}
+      <Card>
+        <h2 style={{ fontFamily: T.fontHead, fontSize: 20, marginBottom: 16 }}>Reviews</h2>
+        {user && (
+          <div style={{ marginBottom: 24, padding: 16, background: T.bgMid, borderRadius: T.radiusSm }}>
+            <p style={{ marginBottom: 8 }}>Your review</p>
+            <RatingStars rating={userRating} onRate={setUserRating} />
+            <textarea
+              rows={2}
+              value={userComment}
+              onChange={e => setUserComment(e.target.value)}
+              placeholder="Share your experience..."
+              style={{ width:'100%', marginTop: 12, background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, padding: 8, color: T.textPri }}
+            />
+            <Btn small onClick={submitReview} disabled={submitting} style={{ marginTop: 12 }}>Submit Review</Btn>
+            {message && <div style={{ marginTop: 8, fontSize: 12, color: T.green }}>{message}</div>}
+          </div>
+        )}
+        {reviews.length === 0 ? (
+          <p style={{ color: T.textSec }}>No reviews yet. Be the first to review!</p>
+        ) : (
+          reviews.map(rev => (
+            <div key={rev.id} style={{ borderBottom: `1px solid ${T.border}`, padding: '12px 0' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <span style={{ fontWeight: 600 }}>{rev.users?.email?.split('@')[0] || 'Anonymous'}</span>
+                <RatingStars rating={rev.rating} readonly size={14} />
+              </div>
+              {rev.comment && <p style={{ color: T.textSec, marginTop: 6, fontSize: 13 }}>{rev.comment}</p>}
+              <div style={{ fontSize: 11, color: T.textMut, marginTop: 4 }}>{new Date(rev.created_at).toLocaleDateString()}</div>
+            </div>
+          ))
+        )}
+      </Card>
+    </div>
+  )
+}
+
+// ─── SKILLS BROWSER (with ratings and link to detail) ─────────────────────────
 function SkillsPage({ user }) {
   const [skills, setSkills] = useState([])
   const [loading, setLoading] = useState(true)
@@ -541,10 +735,29 @@ function SkillsPage({ user }) {
   const [category, setCategory] = useState('All')
   const [enrolling, setEnrolling] = useState(null)
   const [msg, setMsg] = useState(null)
+  const [ratings, setRatings] = useState({})
 
   useEffect(() => {
     supabase.from('skills').select('*').order('created_at', { ascending: false })
-      .then(({ data }) => { setSkills(data || []); setLoading(false) })
+      .then(async ({ data }) => {
+        setSkills(data || [])
+        // fetch avg ratings
+        const { data: reviews } = await supabase.from('reviews').select('skill_id, rating')
+        if (reviews) {
+          const avgMap = {}
+          reviews.forEach(r => {
+            if (!avgMap[r.skill_id]) avgMap[r.skill_id] = { sum: 0, count: 0 }
+            avgMap[r.skill_id].sum += r.rating
+            avgMap[r.skill_id].count++
+          })
+          const avgRatings = {}
+          Object.entries(avgMap).forEach(([id, { sum, count }]) => {
+            avgRatings[id] = (sum / count).toFixed(1)
+          })
+          setRatings(avgRatings)
+        }
+        setLoading(false)
+      })
   }, [])
 
   const categories = ['All', ...new Set(skills.map(s => s.category).filter(Boolean))]
@@ -569,12 +782,11 @@ function SkillsPage({ user }) {
     <div style={{ maxWidth:1100, margin:'0 auto', padding:'40px 24px' }}>
       <div style={{ marginBottom:32 }}>
         <h1 style={{ fontFamily:T.fontHead, fontWeight:700, fontSize:28, letterSpacing:'-0.03em' }}>Skill Library</h1>
-        <p style={{ color:T.textSec, marginTop:6 }}>Explore and enroll in skills to start learning.</p>
+        <p style={{ color:T.textSec, marginTop:6 }}>Explore 50+ skills across academics and technology.</p>
       </div>
 
       {msg && <div style={{ marginBottom:16 }}><Alert message={msg.text} type={msg.type} onClose={() => setMsg(null)} /></div>}
 
-      {/* Filters */}
       <div style={{ display:'flex', gap:12, marginBottom:28, flexWrap:'wrap', alignItems:'center' }}>
         <input
           value={search} onChange={e => setSearch(e.target.value)}
@@ -598,50 +810,42 @@ function SkillsPage({ user }) {
         </div>
       </div>
 
-      {/* Grid */}
-      {filtered.length === 0
-        ? (
-          <div style={{ textAlign:'center', padding:'60px 0', color:T.textSec }}>
-            <div style={{ fontSize:40, marginBottom:12 }}>🔍</div>
-            <p>No skills found. Try a different search or category.</p>
-          </div>
-        )
-        : (
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(300px,1fr))', gap:20 }}>
-            {filtered.map(s => (
-              <Card key={s.id} style={{ display:'flex', flexDirection:'column', gap:12 }}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-                  <Badge color={T.accent}>{s.category || 'General'}</Badge>
-                  <Badge color={s.level === 'Advanced' ? T.red : s.level === 'Intermediate' ? T.gold : T.green}>
-                    {s.level || 'Beginner'}
-                  </Badge>
-                </div>
-                <h3 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:17 }}>{s.title}</h3>
-                <p style={{ color:T.textSec, fontSize:13, lineHeight:1.6, flex:1 }}>{s.description || 'No description available.'}</p>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:4 }}>
-                  <span style={{ fontSize:12, color:T.textMut }}>
-                    {s.duration ? `⏱ ${s.duration}` : ''}
-                  </span>
-                  <Btn small onClick={() => enroll(s.id)} disabled={enrolling === s.id}>
-                    {enrolling === s.id ? 'Enrolling…' : 'Enroll'}
-                  </Btn>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )
-      }
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(300px,1fr))', gap:20 }}>
+        {filtered.map((s, idx) => (
+          <Card key={s.id} hover style={{ display:'flex', flexDirection:'column', gap:12, animation: `fadeUp 0.4s ease both ${idx * 0.02}s` }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+              <Badge color={T.accent}>{s.category || 'General'}</Badge>
+              <Badge color={s.level === 'Advanced' ? T.red : s.level === 'Intermediate' ? T.gold : T.green}>
+                {s.level || 'Beginner'}
+              </Badge>
+            </div>
+            <Link to={`/skill/${s.id}`} style={{ textDecoration: 'none' }}>
+              <h3 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:17, color: T.textPri }}>{s.title}</h3>
+            </Link>
+            <p style={{ color:T.textSec, fontSize:13, lineHeight:1.6, flex:1 }}>{s.description?.substring(0, 100)}...</p>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:4 }}>
+              <div style={{ display:'flex', alignItems:'center', gap: 6 }}>
+                <RatingStars rating={ratings[s.id] || 0} readonly size={14} />
+                <span style={{ fontSize:12, color:T.textMut }}>({ratings[s.id] ? '★' : 'no ratings'})</span>
+              </div>
+              <Btn small onClick={() => enroll(s.id)} disabled={enrolling === s.id}>
+                {enrolling === s.id ? 'Enrolling…' : 'Enroll'}
+              </Btn>
+            </div>
+          </Card>
+        ))}
+      </div>
     </div>
   )
 }
 
-// ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
-function AdminPage() {
+// ─── ADMIN PANEL (hardcoded admin only, with edit/delete) ─────────────────────
+function AdminPage({ user }) {
   const [tab, setTab] = useState('skills')
   const [skills, setSkills] = useState([])
-  const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({ title:'', description:'', category:'', level:'Beginner', duration:'' })
+  const [editingId, setEditingId] = useState(null)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
   const [deleting, setDeleting] = useState(null)
@@ -651,23 +855,24 @@ function AdminPage() {
     setSkills(data || [])
   }, [])
 
-  const fetchUsers = useCallback(async () => {
-    const { data } = await supabase.from('user_progress').select('user_id, completed, progress_pct, skills(title)')
-    setUsers(data || [])
-  }, [])
-
   useEffect(() => {
-    Promise.all([fetchSkills(), fetchUsers()]).then(() => setLoading(false))
-  }, [fetchSkills, fetchUsers])
+    fetchSkills().then(() => setLoading(false))
+  }, [fetchSkills])
 
   const saveSkill = async () => {
     if (!form.title) { setMsg({ type:'error', text:'Title is required.' }); return }
     setSaving(true)
-    const { error } = await supabase.from('skills').insert([form])
+    let error
+    if (editingId) {
+      ({ error } = await supabase.from('skills').update(form).eq('id', editingId))
+    } else {
+      ({ error } = await supabase.from('skills').insert([form]))
+    }
     setSaving(false)
     if (error) { setMsg({ type:'error', text: error.message }); return }
-    setMsg({ type:'success', text:'Skill added successfully!' })
+    setMsg({ type:'success', text: editingId ? 'Skill updated!' : 'Skill added!' })
     setForm({ title:'', description:'', category:'', level:'Beginner', duration:'' })
+    setEditingId(null)
     fetchSkills()
     setTimeout(() => setMsg(null), 3000)
   }
@@ -679,173 +884,176 @@ function AdminPage() {
     fetchSkills()
   }
 
-  if (loading) return <Spinner />
+  const editSkill = (skill) => {
+    setForm({
+      title: skill.title,
+      description: skill.description || '',
+      category: skill.category || '',
+      level: skill.level || 'Beginner',
+      duration: skill.duration || ''
+    })
+    setEditingId(skill.id)
+    setTab('add')
+  }
 
-  const tabs = [
-    { id:'skills', label:'📚 Skills' },
-    { id:'add', label:'➕ Add Skill' },
-    { id:'users', label:'👥 Users' },
-  ]
+  if (loading) return <Spinner />
+  if (!user || user.email !== 'admin@example.com') return <Navigate to="/dashboard" replace />
 
   return (
     <div style={{ maxWidth:1100, margin:'0 auto', padding:'40px 24px' }}>
       <div style={{ marginBottom:32, display:'flex', alignItems:'center', gap:14 }}>
         <div>
           <h1 style={{ fontFamily:T.fontHead, fontWeight:700, fontSize:28, letterSpacing:'-0.03em' }}>Admin Panel</h1>
-          <p style={{ color:T.textSec, marginTop:4 }}>Manage skills, content, and platform data.</p>
+          <p style={{ color:T.textSec, marginTop:4 }}>Manage skills (add, edit, delete).</p>
         </div>
         <Badge color={T.gold}>Admin</Badge>
       </div>
 
-      {/* Tabs */}
       <div style={{ display:'flex', gap:4, marginBottom:28, borderBottom:`1px solid ${T.border}`, paddingBottom:0 }}>
-        {tabs.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
+        {['skills', 'add'].map(t => (
+          <button key={t} onClick={() => { setTab(t); if (t === 'add') setEditingId(null); setForm({ title:'', description:'', category:'', level:'Beginner', duration:'' }); }} style={{
             fontFamily:T.fontHead, fontSize:13, fontWeight:600,
             padding:'10px 20px', borderRadius:`${T.radiusSm} ${T.radiusSm} 0 0`,
-            background: tab === t.id ? T.bgCard : 'transparent',
-            color: tab === t.id ? T.accent : T.textSec,
-            border: tab === t.id ? `1px solid ${T.border}` : '1px solid transparent',
-            borderBottom: tab === t.id ? `1px solid ${T.bgCard}` : 'none',
-            marginBottom: -1, cursor:'pointer', transition:'all 0.15s'
-          }}>{t.label}</button>
+            background: tab === t ? T.bgCard : 'transparent',
+            color: tab === t ? T.accent : T.textSec,
+            border: tab === t ? `1px solid ${T.border}` : '1px solid transparent',
+            borderBottom: tab === t ? `1px solid ${T.bgCard}` : 'none',
+            marginBottom: -1, cursor:'pointer'
+          }}>{t === 'skills' ? '📚 Skills' : (editingId ? '✏️ Edit Skill' : '➕ Add Skill')}</button>
         ))}
       </div>
 
       {msg && <div style={{ marginBottom:16 }}><Alert message={msg.text} type={msg.type} onClose={() => setMsg(null)} /></div>}
 
-      {/* Skills list */}
       {tab === 'skills' && (
         <Card>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-            <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:16 }}>All Skills ({skills.length})</h2>
-          </div>
-          {skills.length === 0
-            ? <p style={{ color:T.textSec, fontSize:14 }}>No skills yet. Add one using the "Add Skill" tab.</p>
-            : (
-              <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
-                {skills.map(s => (
-                  <div key={s.id} style={{
-                    display:'flex', alignItems:'center', justifyContent:'space-between',
-                    padding:'14px 0', borderBottom:`1px solid ${T.border}`
-                  }}>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontWeight:500, fontSize:14 }}>{s.title}</div>
-                      <div style={{ color:T.textSec, fontSize:12, marginTop:2 }}>{s.category} · {s.level}</div>
-                    </div>
+          <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:16, marginBottom:20 }}>All Skills ({skills.length})</h2>
+          {skills.length === 0 ? <p>No skills yet.</p> : (
+            <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
+              {skills.map(s => (
+                <div key={s.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 0', borderBottom:`1px solid ${T.border}` }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:500, fontSize:14 }}>{s.title}</div>
+                    <div style={{ color:T.textSec, fontSize:12 }}>{s.category} · {s.level}</div>
+                  </div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <Btn small variant="secondary" onClick={() => editSkill(s)}>Edit</Btn>
                     <Btn small variant="danger" onClick={() => deleteSkill(s.id)} disabled={deleting === s.id}>
                       {deleting === s.id ? '…' : 'Delete'}
                     </Btn>
                   </div>
-                ))}
-              </div>
-            )
-          }
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       )}
 
-      {/* Add skill form */}
       {tab === 'add' && (
         <Card style={{ maxWidth: 560 }}>
-          <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:18, marginBottom:24 }}>Add New Skill</h2>
+          <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:18, marginBottom:24 }}>{editingId ? 'Edit Skill' : 'Add New Skill'}</h2>
           <div style={{ display:'flex', flexDirection:'column', gap:18 }}>
             <Input label="Skill Title *" value={form.title} onChange={e => setForm({...form, title:e.target.value})} placeholder="e.g. JavaScript Fundamentals" />
-            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-              <label style={{ fontFamily:T.fontHead, fontSize:13, color:T.textSec, letterSpacing:'0.04em' }}>Description</label>
-              <textarea value={form.description} onChange={e => setForm({...form, description:e.target.value})}
-                placeholder="What will learners gain from this skill?"
-                rows={3}
-                style={{
-                  background:T.bgCard, border:`1.5px solid ${T.border}`, borderRadius:T.radiusSm,
-                  padding:'12px 16px', color:T.textPri, fontFamily:T.fontBody, fontSize:14,
-                  resize:'vertical', width:'100%'
-                }}
-              />
+            <div>
+              <label style={{ fontFamily:T.fontHead, fontSize:13, color:T.textSec }}>Description</label>
+              <textarea value={form.description} onChange={e => setForm({...form, description:e.target.value})} rows={3} style={{ width:'100%', background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:T.radiusSm, padding:'12px', color:T.textPri }} />
             </div>
-            <Input label="Category" value={form.category} onChange={e => setForm({...form, category:e.target.value})} placeholder="e.g. Programming, Design, Business" />
-            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-              <label style={{ fontFamily:T.fontHead, fontSize:13, color:T.textSec, letterSpacing:'0.04em' }}>Level</label>
-              <select value={form.level} onChange={e => setForm({...form, level:e.target.value})}
-                style={{
-                  background:T.bgCard, border:`1.5px solid ${T.border}`, borderRadius:T.radiusSm,
-                  padding:'12px 16px', color:T.textPri, fontFamily:T.fontBody, fontSize:14, width:'100%'
-                }}>
-                <option>Beginner</option>
-                <option>Intermediate</option>
-                <option>Advanced</option>
-              </select>
-            </div>
-            <Input label="Duration" value={form.duration} onChange={e => setForm({...form, duration:e.target.value})} placeholder="e.g. 4 hours, 2 weeks" />
+            <Input label="Category" value={form.category} onChange={e => setForm({...form, category:e.target.value})} placeholder="Programming, Design, etc" />
+            <select value={form.level} onChange={e => setForm({...form, level:e.target.value})} style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:T.radiusSm, padding:'12px', color:T.textPri }}>
+              <option>Beginner</option><option>Intermediate</option><option>Advanced</option>
+            </select>
+            <Input label="Duration" value={form.duration} onChange={e => setForm({...form, duration:e.target.value})} placeholder="e.g. 4 hours" />
             <Btn onClick={saveSkill} disabled={saving} style={{ justifyContent:'center' }}>
-              {saving ? 'Saving…' : '+ Add Skill'}
+              {saving ? 'Saving…' : (editingId ? 'Update Skill' : '+ Add Skill')}
             </Btn>
           </div>
-        </Card>
-      )}
-
-      {/* Users */}
-      {tab === 'users' && (
-        <Card>
-          <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:16, marginBottom:20 }}>
-            User Progress ({users.length} records)
-          </h2>
-          {users.length === 0
-            ? <p style={{ color:T.textSec, fontSize:14 }}>No user progress data yet.</p>
-            : (
-              <div style={{ overflowX:'auto' }}>
-                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
-                  <thead>
-                    <tr>
-                      {['User ID', 'Skill', 'Progress', 'Status'].map(h => (
-                        <th key={h} style={{
-                          fontFamily:T.fontHead, fontWeight:600, color:T.textSec,
-                          padding:'10px 12px', textAlign:'left', borderBottom:`1px solid ${T.border}`,
-                          fontSize:12, letterSpacing:'0.04em'
-                        }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.map((u, i) => (
-                      <tr key={i}>
-                        <td style={{ padding:'12px', borderBottom:`1px solid ${T.border}`, color:T.textSec, fontFamily:'monospace', fontSize:11 }}>
-                          {u.user_id?.slice(0,8)}…
-                        </td>
-                        <td style={{ padding:'12px', borderBottom:`1px solid ${T.border}` }}>{u.skills?.title || '—'}</td>
-                        <td style={{ padding:'12px', borderBottom:`1px solid ${T.border}` }}>
-                          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                            <div style={{ flex:1, height:4, background:T.border, borderRadius:2 }}>
-                              <div style={{ height:'100%', width:`${u.progress_pct||0}%`, background:T.accent, borderRadius:2 }} />
-                            </div>
-                            <span style={{ color:T.textSec, minWidth:30 }}>{u.progress_pct||0}%</span>
-                          </div>
-                        </td>
-                        <td style={{ padding:'12px', borderBottom:`1px solid ${T.border}` }}>
-                          <Badge color={u.completed ? T.green : T.gold}>{u.completed ? 'Done' : 'Active'}</Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )
-          }
         </Card>
       )}
     </div>
   )
 }
 
+// ─── SEED SKILLS (50+ academics + technology) ─────────────────────────────────
+async function seedSkillsIfNeeded() {
+  const { count } = await supabase.from('skills').select('*', { count: 'exact', head: true })
+  if (count && count >= 50) return
+  const skillList = [
+    // Academics
+    { title: 'Calculus I', category: 'Mathematics', level: 'Intermediate', description: 'Limits, derivatives, integrals.', duration: '8 weeks' },
+    { title: 'Linear Algebra', category: 'Mathematics', level: 'Intermediate', description: 'Vectors, matrices, transformations.', duration: '6 weeks' },
+    { title: 'Statistics 101', category: 'Mathematics', level: 'Beginner', description: 'Probability, distributions, hypothesis testing.', duration: '5 weeks' },
+    { title: 'Discrete Mathematics', category: 'Mathematics', level: 'Intermediate', description: 'Logic, sets, combinatorics.', duration: '6 weeks' },
+    { title: 'Physics: Mechanics', category: 'Physics', level: 'Intermediate', description: 'Newtonian mechanics, energy, momentum.', duration: '7 weeks' },
+    { title: 'Physics: Electromagnetism', category: 'Physics', level: 'Advanced', description: 'Electricity, magnetism, Maxwell equations.', duration: '8 weeks' },
+    { title: 'Quantum Mechanics', category: 'Physics', level: 'Advanced', description: 'Wave functions, uncertainty principle.', duration: '10 weeks' },
+    { title: 'General Chemistry', category: 'Chemistry', level: 'Beginner', description: 'Atoms, molecules, reactions.', duration: '6 weeks' },
+    { title: 'Organic Chemistry', category: 'Chemistry', level: 'Advanced', description: 'Carbon compounds, mechanisms.', duration: '8 weeks' },
+    { title: 'Molecular Biology', category: 'Biology', level: 'Intermediate', description: 'DNA, RNA, proteins.', duration: '7 weeks' },
+    { title: 'Human Anatomy', category: 'Biology', level: 'Intermediate', description: 'Body systems, structure.', duration: '6 weeks' },
+    { title: 'World History', category: 'History', level: 'Beginner', description: 'Major events, civilizations.', duration: '8 weeks' },
+    { title: 'American Literature', category: 'Literature', level: 'Intermediate', description: 'Classic works, analysis.', duration: '6 weeks' },
+    { title: 'Macroeconomics', category: 'Economics', level: 'Intermediate', description: 'GDP, inflation, policy.', duration: '5 weeks' },
+    { title: 'Microeconomics', category: 'Economics', level: 'Intermediate', description: 'Supply/demand, markets.', duration: '5 weeks' },
+    { title: 'Psychology 101', category: 'Psychology', level: 'Beginner', description: 'Cognitive, behavioral, social.', duration: '6 weeks' },
+    { title: 'Art History', category: 'Art', level: 'Beginner', description: 'Renaissance to modern.', duration: '4 weeks' },
+    { title: 'Music Theory', category: 'Music', level: 'Beginner', description: 'Scales, chords, harmony.', duration: '4 weeks' },
+    // Technology
+    { title: 'JavaScript Essentials', category: 'Programming', level: 'Beginner', description: 'ES6, DOM, basics.', duration: '4 weeks' },
+    { title: 'React.js Mastery', category: 'Programming', level: 'Intermediate', description: 'Hooks, context, performance.', duration: '6 weeks' },
+    { title: 'Python for Data Science', category: 'Data Science', level: 'Intermediate', description: 'Pandas, NumPy, matplotlib.', duration: '5 weeks' },
+    { title: 'Machine Learning A-Z', category: 'AI', level: 'Advanced', description: 'Regression, classification, neural nets.', duration: '10 weeks' },
+    { title: 'Cloud Computing (AWS)', category: 'Cloud', level: 'Intermediate', description: 'EC2, S3, Lambda.', duration: '6 weeks' },
+    { title: 'Cybersecurity Fundamentals', category: 'Security', level: 'Beginner', description: 'Threats, encryption, best practices.', duration: '5 weeks' },
+    { title: 'DevOps with Docker', category: 'DevOps', level: 'Intermediate', description: 'Containers, orchestration.', duration: '4 weeks' },
+    { title: 'Flutter Mobile Dev', category: 'Mobile', level: 'Intermediate', description: 'Cross-platform apps.', duration: '6 weeks' },
+    { title: 'UI/UX Design', category: 'Design', level: 'Beginner', description: 'Figma, prototyping, usability.', duration: '5 weeks' },
+    { title: 'SQL Database Design', category: 'Databases', level: 'Intermediate', description: 'PostgreSQL, queries, normalization.', duration: '4 weeks' },
+    { title: 'Node.js Backend', category: 'Programming', level: 'Intermediate', description: 'REST APIs, Express, MongoDB.', duration: '5 weeks' },
+    { title: 'GraphQL with Apollo', category: 'Programming', level: 'Advanced', description: 'Schema, resolvers, federation.', duration: '4 weeks' },
+    { title: 'TypeScript', category: 'Programming', level: 'Intermediate', description: 'Static typing, advanced patterns.', duration: '3 weeks' },
+    { title: 'Kubernetes Basics', category: 'DevOps', level: 'Advanced', description: 'Pods, services, deployments.', duration: '5 weeks' },
+    { title: 'Blockchain Fundamentals', category: 'Blockchain', level: 'Intermediate', description: 'Ethereum, smart contracts.', duration: '6 weeks' },
+    { title: 'Computer Vision', category: 'AI', level: 'Advanced', description: 'OpenCV, CNNs.', duration: '8 weeks' },
+    { title: 'Natural Language Processing', category: 'AI', level: 'Advanced', description: 'Transformers, BERT.', duration: '8 weeks' },
+    { title: 'Rust Programming', category: 'Programming', level: 'Advanced', description: 'Systems programming, ownership.', duration: '6 weeks' },
+    { title: 'Go (Golang) for Backend', category: 'Programming', level: 'Intermediate', description: 'Concurrency, microservices.', duration: '5 weeks' },
+    { title: 'Vue.js 3', category: 'Programming', level: 'Intermediate', description: 'Composition API, Vuex.', duration: '5 weeks' },
+    { title: 'Angular Deep Dive', category: 'Programming', level: 'Advanced', description: 'RxJS, modules, DI.', duration: '6 weeks' },
+    { title: 'Swift iOS Development', category: 'Mobile', level: 'Intermediate', description: 'SwiftUI, UIKit.', duration: '7 weeks' },
+    { title: 'Android Kotlin', category: 'Mobile', level: 'Intermediate', description: 'Jetpack Compose, architecture.', duration: '6 weeks' },
+    { title: 'Data Visualization', category: 'Data Science', level: 'Intermediate', description: 'Tableau, D3.js.', duration: '4 weeks' },
+    { title: 'Big Data Hadoop', category: 'Data', level: 'Advanced', description: 'MapReduce, HDFS.', duration: '6 weeks' },
+    { title: 'Serverless Architecture', category: 'Cloud', level: 'Advanced', description: 'AWS Lambda, API Gateway.', duration: '4 weeks' },
+    { title: 'Web Accessibility', category: 'Design', level: 'Beginner', description: 'WCAG, a11y best practices.', duration: '3 weeks' },
+    { title: 'Ethical Hacking', category: 'Security', level: 'Advanced', description: 'Penetration testing, tools.', duration: '8 weeks' },
+    { title: 'Digital Marketing', category: 'Business', level: 'Beginner', description: 'SEO, social media, analytics.', duration: '5 weeks' },
+    { title: 'Project Management', category: 'Business', level: 'Intermediate', description: 'Agile, Scrum, Jira.', duration: '4 weeks' },
+    { title: 'Communication Skills', category: 'Soft Skills', level: 'Beginner', description: 'Public speaking, writing.', duration: '3 weeks' },
+    { title: 'Critical Thinking', category: 'Soft Skills', level: 'Intermediate', description: 'Logic, problem solving.', duration: '3 weeks' },
+    { title: 'Leadership & Management', category: 'Business', level: 'Advanced', description: 'Team building, strategy.', duration: '5 weeks' },
+    { title: 'Excel for Business', category: 'Business', level: 'Beginner', description: 'Formulas, pivot tables, dashboards.', duration: '4 weeks' },
+  ]
+  for (const skill of skillList) {
+    await supabase.from('skills').insert(skill).select()
+  }
+  console.log('Seeded 50+ skills')
+}
+
 // ─── PROTECTED ROUTE ──────────────────────────────────────────────────────────
-function Protected({ user, loading, children }) {
+function Protected({ user, loading, children, adminOnly = false }) {
   if (loading) return <Spinner />
   if (!user) return <Navigate to="/login" replace />
+  if (adminOnly && user.email !== 'admin@example.com') return <Navigate to="/dashboard" replace />
   return children
 }
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
 export default function App() {
   const { user, loading, signOut } = useAuth()
+
+  useEffect(() => {
+    seedSkillsIfNeeded()
+  }, [])
 
   const handleSignOut = async () => {
     await signOut()
@@ -867,8 +1075,9 @@ export default function App() {
                 <Route path="/"          element={<LandingPage />} />
                 <Route path="/dashboard" element={<Protected user={user} loading={loading}><DashboardPage user={user} /></Protected>} />
                 <Route path="/skills"    element={<Protected user={user} loading={loading}><SkillsPage user={user} /></Protected>} />
-                <Route path="/admin"     element={<Protected user={user} loading={loading}><AdminPage /></Protected>} />
-                <Route path="*"          element={
+                <Route path="/skill/:skillId" element={<Protected user={user} loading={loading}><SkillDetailPage user={user} /></Protected>} />
+                <Route path="/admin"     element={<Protected user={user} loading={loading} adminOnly><AdminPage user={user} /></Protected>} />
+                <Route path="*" element={
                   <div style={{ textAlign:'center', padding:'120px 24px' }}>
                     <h1 style={{ fontFamily:T.fontHead, fontSize:64, color:T.accent }}>404</h1>
                     <p style={{ color:T.textSec, margin:'12px 0 24px' }}>Page not found.</p>
