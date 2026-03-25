@@ -176,12 +176,17 @@ function RatingStars({ rating, onRate, readonly = false, size = 18 }) {
   )
 }
 
-// ─── NAVBAR ───────────────────────────────────────────────────────────────────
+// ─── NAVBAR (shows Admin only if user is trainer or superadmin) ─────────────
 function Navbar({ user, onSignOut }) {
   const location = useLocation()
+  const isTrainer = user?.user_metadata?.role === 'trainer' || user?.email === 'admin@example.com'
 
   const navLinks = user
-    ? [{ to:'/dashboard', label:'Dashboard' }, { to:'/skills', label:'Skills' }, ...(user.email === 'admin@example.com' ? [{ to:'/admin', label:'Admin' }] : [])]
+    ? [
+        { to:'/dashboard', label:'Dashboard' },
+        { to:'/skills', label:'Skills' },
+        ...(isTrainer ? [{ to:'/admin', label:'Manage Skills' }] : [])
+      ]
     : [{ to:'/', label:'Home' }, { to:'/login', label:'Sign In' }]
 
   return (
@@ -221,7 +226,7 @@ function Navbar({ user, onSignOut }) {
   )
 }
 
-// ─── LANDING PAGE (with top rated skills and latest reviews) ─────────────────
+// ─── LANDING PAGE (unchanged) ─────────────────────────────────────────────────
 function LandingPage() {
   const navigate = useNavigate()
   const [topSkills, setTopSkills] = useState([])
@@ -231,7 +236,6 @@ function LandingPage() {
   useEffect(() => {
     const fetchHomeData = async () => {
       try {
-        // Get all reviews to calculate average ratings
         const { data: reviews } = await supabase.from('reviews').select('skill_id, rating')
         const ratingMap = {}
         reviews?.forEach(r => {
@@ -240,7 +244,6 @@ function LandingPage() {
           ratingMap[r.skill_id].count++
         })
 
-        // Fetch all skills
         const { data: skills } = await supabase.from('skills').select('*')
         const skillsWithRating = skills?.map(s => ({
           ...s,
@@ -250,7 +253,6 @@ function LandingPage() {
         skillsWithRating.sort((a, b) => b.avgRating - a.avgRating)
         setTopSkills(skillsWithRating.slice(0, 6))
 
-        // Fetch latest 3 reviews with user and skill info
         const { data: latestReviews } = await supabase
           .from('reviews')
           .select('*, users(email), skills(title)')
@@ -272,7 +274,7 @@ function LandingPage() {
     { icon:'📚', title:'Structured Learning', desc:'Step-by-step learning paths guide your progress.' },
     { icon:'🔒', title:'Secure & Reliable', desc:'Your data is protected with enterprise-grade security.' },
     { icon:'📱', title:'Access Anywhere', desc:'Works seamlessly on desktop, tablet, and mobile.' },
-    { icon:'🚀', title:'Admin Control Panel', desc:'Powerful dashboard for managing platform content.' },
+    { icon:'🚀', title:'Trainer Dashboard', desc:'Trainers can create and manage skills easily.' },
     { icon:'🔄', title:'Real-Time Updates', desc:'Content changes reflect instantly across the platform.' },
     { icon:'🌱', title:'Growing Library', desc:'New skills added as the platform expands.' },
   ]
@@ -300,7 +302,6 @@ function LandingPage() {
         }} />
 
         <div style={{ animation: 'fadeUp 0.7s ease both', maxWidth: 760 }}>
-          {/* Removed version badge */}
           <h1 style={{
             fontFamily: T.fontHead, fontWeight: 800, letterSpacing: '-0.04em',
             fontSize: 'clamp(38px, 7vw, 76px)', lineHeight: 1.05,
@@ -457,7 +458,7 @@ function LandingPage() {
   )
 }
 
-// ─── AUTH PAGES ───────────────────────────────────────────────────────────────
+// ─── AUTH PAGES (with role selection) ────────────────────────────────────────
 function AuthLayout({ children, title, subtitle }) {
   return (
     <div style={{
@@ -523,6 +524,7 @@ function SignupPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [role, setRole] = useState('learner') // 'learner' or 'trainer'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -532,7 +534,8 @@ function SignupPage() {
     if (!name || !email || !password) { setError('Please fill in all fields.'); return }
     if (password.length < 6) { setError('Password must be at least 6 characters.'); return }
     setLoading(true)
-    const { error: err } = await signUp(email, password, name)
+    // Pass role in metadata
+    const { error: err } = await signUp(email, password, name, { role })
     setLoading(false)
     if (err) { setError(err.message); return }
     setSuccess(true)
@@ -557,6 +560,35 @@ function SignupPage() {
         <Input label="Full Name" value={name} onChange={e => setName(e.target.value)} placeholder="Jane Doe" />
         <Input label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
         <Input label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Min. 6 characters" />
+        
+        <div style={{ display:'flex', flexDirection:'column', gap: 6 }}>
+          <label style={{ fontFamily: T.fontHead, fontSize: 13, color: T.textSec, letterSpacing:'0.04em' }}>I want to be a...</label>
+          <div style={{ display:'flex', gap: 24 }}>
+            <label style={{ display:'flex', alignItems:'center', gap: 8, cursor:'pointer' }}>
+              <input
+                type="radio"
+                name="role"
+                value="learner"
+                checked={role === 'learner'}
+                onChange={() => setRole('learner')}
+                style={{ width: 16, height: 16, cursor:'pointer' }}
+              />
+              <span style={{ fontSize: 14 }}>Learner (enroll in courses)</span>
+            </label>
+            <label style={{ display:'flex', alignItems:'center', gap: 8, cursor:'pointer' }}>
+              <input
+                type="radio"
+                name="role"
+                value="trainer"
+                checked={role === 'trainer'}
+                onChange={() => setRole('trainer')}
+                style={{ width: 16, height: 16, cursor:'pointer' }}
+              />
+              <span style={{ fontSize: 14 }}>Trainer (create and manage courses)</span>
+            </label>
+          </div>
+        </div>
+
         <Btn onClick={handleSubmit} disabled={loading} style={{ width:'100%', justifyContent:'center' }}>
           {loading ? 'Creating account…' : 'Create Account'}
         </Btn>
@@ -569,7 +601,7 @@ function SignupPage() {
   )
 }
 
-// ─── DASHBOARD (improved) ─────────────────────────────────────────────────────
+// ─── DASHBOARD (unchanged) ─────────────────────────────────────────────────────
 function DashboardPage({ user }) {
   const [skills, setSkills] = useState([])
   const [progress, setProgress] = useState([])
@@ -691,7 +723,7 @@ function DashboardPage({ user }) {
   )
 }
 
-// ─── SKILL DETAIL WITH REVIEWS ───────────────────────────────────────────────
+// ─── SKILL DETAIL WITH REVIEWS (unchanged) ───────────────────────────────────
 function SkillDetailPage({ user }) {
   const { skillId } = useParams()
   const [skill, setSkill] = useState(null)
@@ -835,7 +867,7 @@ function SkillDetailPage({ user }) {
   )
 }
 
-// ─── SKILLS BROWSER (with ratings and link to detail) ─────────────────────────
+// ─── SKILLS BROWSER (unchanged) ───────────────────────────────────────────────
 function SkillsPage({ user }) {
   const [skills, setSkills] = useState([])
   const [loading, setLoading] = useState(true)
@@ -946,7 +978,7 @@ function SkillsPage({ user }) {
   )
 }
 
-// ─── ADMIN PANEL (hardcoded admin only, with edit/delete) ─────────────────────
+// ─── ADMIN PANEL (now accessible to trainers and superadmin) ──────────────────
 function AdminPage({ user }) {
   const [tab, setTab] = useState('skills')
   const [skills, setSkills] = useState([])
@@ -1004,16 +1036,19 @@ function AdminPage({ user }) {
   }
 
   if (loading) return <Spinner />
-  if (!user || user.email !== 'admin@example.com') return <Navigate to="/dashboard" replace />
+  // Allow access if user is trainer or admin email
+  if (!user || (user.user_metadata?.role !== 'trainer' && user.email !== 'admin@example.com')) {
+    return <Navigate to="/dashboard" replace />
+  }
 
   return (
     <div style={{ maxWidth:1100, margin:'0 auto', padding:'40px 24px' }}>
       <div style={{ marginBottom:32, display:'flex', alignItems:'center', gap:14 }}>
         <div>
-          <h1 style={{ fontFamily:T.fontHead, fontWeight:700, fontSize:28, letterSpacing:'-0.03em' }}>Admin Panel</h1>
-          <p style={{ color:T.textSec, marginTop:4 }}>Manage skills (add, edit, delete).</p>
+          <h1 style={{ fontFamily:T.fontHead, fontWeight:700, fontSize:28, letterSpacing:'-0.03em' }}>Manage Skills</h1>
+          <p style={{ color:T.textSec, marginTop:4 }}>Create, edit, or remove skills.</p>
         </div>
-        <Badge color={T.gold}>Admin</Badge>
+        <Badge color={T.gold}>{user.user_metadata?.role === 'trainer' ? 'Trainer' : 'Admin'}</Badge>
       </div>
 
       <div style={{ display:'flex', gap:4, marginBottom:28, borderBottom:`1px solid ${T.border}`, paddingBottom:0 }}>
@@ -1080,7 +1115,7 @@ function AdminPage({ user }) {
   )
 }
 
-// ─── SEED SKILLS (50+ academics + technology) ─────────────────────────────────
+// ─── SEED SKILLS (unchanged) ─────────────────────────────────────────────────
 async function seedSkillsIfNeeded() {
   const { count } = await supabase.from('skills').select('*', { count: 'exact', head: true })
   if (count && count >= 50) return
@@ -1146,11 +1181,16 @@ async function seedSkillsIfNeeded() {
   console.log('Seeded 50+ skills')
 }
 
-// ─── PROTECTED ROUTE ──────────────────────────────────────────────────────────
-function Protected({ user, loading, children, adminOnly = false }) {
+// ─── PROTECTED ROUTE (now with optional role check) ──────────────────────────
+function Protected({ user, loading, children, allowedRoles = [] }) {
   if (loading) return <Spinner />
   if (!user) return <Navigate to="/login" replace />
-  if (adminOnly && user.email !== 'admin@example.com') return <Navigate to="/dashboard" replace />
+  if (allowedRoles.length > 0) {
+    const userRole = user.user_metadata?.role
+    if (!allowedRoles.includes(userRole)) {
+      return <Navigate to="/dashboard" replace />
+    }
+  }
   return children
 }
 
@@ -1183,7 +1223,7 @@ export default function App() {
                 <Route path="/dashboard" element={<Protected user={user} loading={loading}><DashboardPage user={user} /></Protected>} />
                 <Route path="/skills"    element={<Protected user={user} loading={loading}><SkillsPage user={user} /></Protected>} />
                 <Route path="/skill/:skillId" element={<Protected user={user} loading={loading}><SkillDetailPage user={user} /></Protected>} />
-                <Route path="/admin"     element={<Protected user={user} loading={loading} adminOnly><AdminPage user={user} /></Protected>} />
+                <Route path="/admin"     element={<Protected user={user} loading={loading}><AdminPage user={user} /></Protected>} />
                 <Route path="*" element={
                   <div style={{ textAlign:'center', padding:'120px 24px' }}>
                     <h1 style={{ fontFamily:T.fontHead, fontSize:64, color:T.accent }}>404</h1>
