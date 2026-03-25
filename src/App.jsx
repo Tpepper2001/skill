@@ -45,7 +45,6 @@ globalStyle.textContent = `
   .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
   .card-hover:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,0.5); }
   .fade-up { animation: fadeUp 0.5s ease both; }
-  .stagger-item { animation: fadeUp 0.4s ease both; }
 `
 document.head.appendChild(globalStyle)
 
@@ -180,7 +179,6 @@ function RatingStars({ rating, onRate, readonly = false, size = 18 }) {
 // ─── NAVBAR ───────────────────────────────────────────────────────────────────
 function Navbar({ user, onSignOut }) {
   const location = useLocation()
-  const [mobileOpen, setMobileOpen] = useState(false)
 
   const navLinks = user
     ? [{ to:'/dashboard', label:'Dashboard' }, { to:'/skills', label:'Skills' }, ...(user.email === 'admin@example.com' ? [{ to:'/admin', label:'Admin' }] : [])]
@@ -223,9 +221,50 @@ function Navbar({ user, onSignOut }) {
   )
 }
 
-// ─── LANDING PAGE (with added animation) ──────────────────────────────────────
+// ─── LANDING PAGE (with top rated skills and latest reviews) ─────────────────
 function LandingPage() {
   const navigate = useNavigate()
+  const [topSkills, setTopSkills] = useState([])
+  const [recentReviews, setRecentReviews] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchHomeData = async () => {
+      try {
+        // Get all reviews to calculate average ratings
+        const { data: reviews } = await supabase.from('reviews').select('skill_id, rating')
+        const ratingMap = {}
+        reviews?.forEach(r => {
+          if (!ratingMap[r.skill_id]) ratingMap[r.skill_id] = { sum: 0, count: 0 }
+          ratingMap[r.skill_id].sum += r.rating
+          ratingMap[r.skill_id].count++
+        })
+
+        // Fetch all skills
+        const { data: skills } = await supabase.from('skills').select('*')
+        const skillsWithRating = skills?.map(s => ({
+          ...s,
+          avgRating: ratingMap[s.id] ? (ratingMap[s.id].sum / ratingMap[s.id].count).toFixed(1) : 0,
+          reviewCount: ratingMap[s.id]?.count || 0
+        })) || []
+        skillsWithRating.sort((a, b) => b.avgRating - a.avgRating)
+        setTopSkills(skillsWithRating.slice(0, 6))
+
+        // Fetch latest 3 reviews with user and skill info
+        const { data: latestReviews } = await supabase
+          .from('reviews')
+          .select('*, users(email), skills(title)')
+          .order('created_at', { ascending: false })
+          .limit(3)
+        setRecentReviews(latestReviews || [])
+      } catch (err) {
+        console.error('Error fetching home data:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchHomeData()
+  }, [])
 
   const features = [
     { icon:'🎯', title:'Easy Skill Discovery', desc:'Quickly find skills that match your interests and goals.' },
@@ -261,7 +300,7 @@ function LandingPage() {
         }} />
 
         <div style={{ animation: 'fadeUp 0.7s ease both', maxWidth: 760 }}>
-          <Badge color={T.accent}>🚀 Version 2.0 — Now with Reviews & 50+ Skills</Badge>
+          {/* Removed version badge */}
           <h1 style={{
             fontFamily: T.fontHead, fontWeight: 800, letterSpacing: '-0.04em',
             fontSize: 'clamp(38px, 7vw, 76px)', lineHeight: 1.05,
@@ -293,6 +332,82 @@ function LandingPage() {
               <div style={{ color: T.textSec, fontSize: 14, marginTop: 4 }}>{s.label}</div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Top Rated Skills */}
+      <section style={{ padding: '80px 24px', background: T.bgMid }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 48 }}>
+            <h2 style={{ fontFamily: T.fontHead, fontSize: 36, fontWeight: 700, letterSpacing: '-0.03em' }}>
+              Top Rated <span style={{ color: T.accent }}>Courses</span>
+            </h2>
+            <p style={{ color: T.textSec, marginTop: 12 }}>Our community's favorites — highly recommended by learners.</p>
+          </div>
+          {loading ? (
+            <div style={{ textAlign: 'center' }}><Spinner /></div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
+              {topSkills.map(skill => (
+                <Card key={skill.id} hover style={{ padding: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <Badge color={T.accent}>{skill.category || 'General'}</Badge>
+                    <RatingStars rating={parseFloat(skill.avgRating)} readonly size={14} />
+                  </div>
+                  <Link to={`/skill/${skill.id}`} style={{ textDecoration: 'none' }}>
+                    <h3 style={{ fontFamily: T.fontHead, fontSize: 18, fontWeight: 600, marginBottom: 8, color: T.textPri }}>
+                      {skill.title}
+                    </h3>
+                  </Link>
+                  <p style={{ color: T.textSec, fontSize: 13, marginBottom: 12 }}>{skill.description?.substring(0, 100)}...</p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, color: T.textMut }}>{skill.reviewCount} {skill.reviewCount === 1 ? 'review' : 'reviews'}</span>
+                    <Btn small onClick={() => navigate(`/skill/${skill.id}`)}>View Course</Btn>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Latest Reviews */}
+      <section style={{ padding: '80px 24px' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 48 }}>
+            <h2 style={{ fontFamily: T.fontHead, fontSize: 36, fontWeight: 700, letterSpacing: '-0.03em' }}>
+              What <span style={{ color: T.accent }}>Learners</span> Say
+            </h2>
+            <p style={{ color: T.textSec, marginTop: 12 }}>Real experiences from our community.</p>
+          </div>
+          {loading ? (
+            <div style={{ textAlign: 'center' }}><Spinner /></div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 24 }}>
+              {recentReviews.map(review => (
+                <Card key={review.id} style={{ padding: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{review.users?.email?.split('@')[0] || 'Anonymous'}</div>
+                      <div style={{ fontSize: 12, color: T.textSec }}>reviewed <strong>{review.skills?.title}</strong></div>
+                    </div>
+                    <RatingStars rating={review.rating} readonly size={14} />
+                  </div>
+                  <p style={{ color: T.textSec, fontSize: 14, lineHeight: 1.5, marginBottom: 12 }}>
+                    "{review.comment || 'Great course! Really helped me level up.'}"
+                  </p>
+                  <div style={{ fontSize: 11, color: T.textMut }}>
+                    {new Date(review.created_at).toLocaleDateString()}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+          {!loading && recentReviews.length === 0 && (
+            <div style={{ textAlign: 'center', color: T.textSec }}>
+              No reviews yet. Be the first to share your experience!
+            </div>
+          )}
         </div>
       </section>
 
@@ -489,7 +604,6 @@ function DashboardPage({ user }) {
 
   return (
     <div style={{ maxWidth:1100, margin:'0 auto', padding:'40px 24px' }}>
-      {/* Header */}
       <div style={{ marginBottom: 36, animation: 'fadeUp 0.4s ease' }}>
         <h1 style={{ fontFamily:T.fontHead, fontWeight:700, fontSize:28, letterSpacing:'-0.03em' }}>
           {greeting}, <span style={{ color:T.accent }}>{displayName}</span> 👋
@@ -497,7 +611,6 @@ function DashboardPage({ user }) {
         <p style={{ color:T.textSec, marginTop:6, fontSize:15 }}>Here's your learning overview for today.</p>
       </div>
 
-      {/* Stats row */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(180px,1fr))', gap:16, marginBottom:36 }}>
         {[
           { label:'Skills Enrolled', value: totalProgress, icon:'📚', color:T.accent },
@@ -514,7 +627,6 @@ function DashboardPage({ user }) {
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:24 }}>
-        {/* Enrolled Skills with Progress */}
         <Card>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
             <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:16 }}>My Enrolled Skills</h2>
@@ -541,7 +653,6 @@ function DashboardPage({ user }) {
           )}
         </Card>
 
-        {/* Recent Reviews */}
         <Card>
           <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:16, marginBottom:20 }}>Your Recent Reviews</h2>
           {reviews.length === 0 ? (
@@ -564,7 +675,6 @@ function DashboardPage({ user }) {
         </Card>
       </div>
 
-      {/* Recommended Skills */}
       <div style={{ marginTop: 36 }}>
         <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:18, marginBottom:16 }}>🔥 Recommended for you</h2>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap:20 }}>
@@ -644,7 +754,6 @@ function SkillDetailPage({ user }) {
     }, { onConflict: 'user_id, skill_id' })
     if (!error) {
       setMessage('Review saved!')
-      // refresh reviews
       const { data } = await supabase.from('reviews').select('*, users(email)').eq('skill_id', skillId).order('created_at', { ascending: false })
       setReviews(data || [])
     } else setMessage('Error saving review')
@@ -690,7 +799,6 @@ function SkillDetailPage({ user }) {
         </div>
       </Card>
 
-      {/* Reviews Section */}
       <Card>
         <h2 style={{ fontFamily: T.fontHead, fontSize: 20, marginBottom: 16 }}>Reviews</h2>
         {user && (
@@ -741,7 +849,6 @@ function SkillsPage({ user }) {
     supabase.from('skills').select('*').order('created_at', { ascending: false })
       .then(async ({ data }) => {
         setSkills(data || [])
-        // fetch avg ratings
         const { data: reviews } = await supabase.from('reviews').select('skill_id, rating')
         if (reviews) {
           const avgMap = {}
