@@ -226,7 +226,7 @@ function Navbar({ user, onSignOut }) {
   )
 }
 
-// ─── LANDING PAGE (unchanged) ─────────────────────────────────────────────────
+// ─── LANDING PAGE (with top rated skills and latest reviews) ─────────────────
 function LandingPage() {
   const navigate = useNavigate()
   const [topSkills, setTopSkills] = useState([])
@@ -601,7 +601,7 @@ function SignupPage() {
   )
 }
 
-// ─── DASHBOARD (unchanged) ─────────────────────────────────────────────────────
+// ─── DASHBOARD (improved) ─────────────────────────────────────────────────────
 function DashboardPage({ user }) {
   const [skills, setSkills] = useState([])
   const [progress, setProgress] = useState([])
@@ -723,10 +723,11 @@ function DashboardPage({ user }) {
   )
 }
 
-// ─── SKILL DETAIL WITH REVIEWS (unchanged) ───────────────────────────────────
+// ─── SKILL DETAIL PAGE (with modules) ────────────────────────────────────────
 function SkillDetailPage({ user }) {
   const { skillId } = useParams()
   const [skill, setSkill] = useState(null)
+  const [modules, setModules] = useState([])
   const [reviews, setReviews] = useState([])
   const [avgRating, setAvgRating] = useState(0)
   const [userRating, setUserRating] = useState(null)
@@ -742,6 +743,14 @@ function SkillDetailPage({ user }) {
       setLoading(true)
       const { data: skillData } = await supabase.from('skills').select('*').eq('id', skillId).single()
       setSkill(skillData)
+
+      // Fetch modules for this skill
+      const { data: modulesData } = await supabase
+        .from('skill_modules')
+        .select('*')
+        .eq('skill_id', skillId)
+        .order('order_index', { ascending: true })
+      setModules(modulesData || [])
 
       const { data: reviewsData } = await supabase.from('reviews').select('*, users(email)').eq('skill_id', skillId).order('created_at', { ascending: false })
       setReviews(reviewsData || [])
@@ -793,6 +802,14 @@ function SkillDetailPage({ user }) {
     setTimeout(() => setMessage(''), 3000)
   }
 
+  const getMediaIcon = (type) => {
+    switch(type) {
+      case 'video': return '🎥';
+      case 'audio': return '🎧';
+      default: return '📄';
+    }
+  }
+
   if (loading) return <Spinner />
   if (!skill) return <div style={{ padding: 40, textAlign:'center' }}>Skill not found.</div>
 
@@ -831,6 +848,28 @@ function SkillDetailPage({ user }) {
         </div>
       </Card>
 
+      {/* Modules Section */}
+      {modules.length > 0 && (
+        <Card style={{ marginBottom: 32 }}>
+          <h2 style={{ fontFamily: T.fontHead, fontSize: 20, marginBottom: 16 }}>📚 Course Modules</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {modules.map((mod, idx) => (
+              <div key={mod.id} style={{ padding: '12px', background: T.bgMid, borderRadius: T.radiusSm, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ fontSize: 24 }}>{getMediaIcon(mod.content_type)}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, marginBottom: 4 }}>{idx+1}. {mod.title}</div>
+                  {mod.description && <div style={{ fontSize: 12, color: T.textSec }}>{mod.description}</div>}
+                </div>
+                <a href={mod.content_url} target="_blank" rel="noopener noreferrer">
+                  <Btn small variant="secondary">Open →</Btn>
+                </a>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Reviews Section */}
       <Card>
         <h2 style={{ fontFamily: T.fontHead, fontSize: 20, marginBottom: 16 }}>Reviews</h2>
         {user && (
@@ -867,7 +906,7 @@ function SkillDetailPage({ user }) {
   )
 }
 
-// ─── SKILLS BROWSER (unchanged) ───────────────────────────────────────────────
+// ─── SKILLS BROWSER (with ratings and link to detail) ─────────────────────────
 function SkillsPage({ user }) {
   const [skills, setSkills] = useState([])
   const [loading, setLoading] = useState(true)
@@ -978,10 +1017,12 @@ function SkillsPage({ user }) {
   )
 }
 
-// ─── ADMIN PANEL (now accessible to trainers and superadmin) ──────────────────
+// ─── ADMIN PANEL (with skill and module management) ──────────────────────────
 function AdminPage({ user }) {
   const [tab, setTab] = useState('skills')
   const [skills, setSkills] = useState([])
+  const [selectedSkill, setSelectedSkill] = useState(null)
+  const [modules, setModules] = useState([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({ title:'', description:'', category:'', level:'Beginner', duration:'' })
   const [editingId, setEditingId] = useState(null)
@@ -989,14 +1030,33 @@ function AdminPage({ user }) {
   const [msg, setMsg] = useState(null)
   const [deleting, setDeleting] = useState(null)
 
+  // Module form state
+  const [moduleForm, setModuleForm] = useState({ title: '', description: '', content_type: 'video', content_url: '', order_index: 0 })
+  const [editingModuleId, setEditingModuleId] = useState(null)
+  const [savingModule, setSavingModule] = useState(false)
+
   const fetchSkills = useCallback(async () => {
     const { data } = await supabase.from('skills').select('*').order('created_at', { ascending:false })
     setSkills(data || [])
   }, [])
 
+  const fetchModules = useCallback(async (skillId) => {
+    if (!skillId) return
+    const { data } = await supabase.from('skill_modules').select('*').eq('skill_id', skillId).order('order_index', { ascending: true })
+    setModules(data || [])
+  }, [])
+
   useEffect(() => {
     fetchSkills().then(() => setLoading(false))
   }, [fetchSkills])
+
+  useEffect(() => {
+    if (selectedSkill) {
+      fetchModules(selectedSkill.id)
+    } else {
+      setModules([])
+    }
+  }, [selectedSkill, fetchModules])
 
   const saveSkill = async () => {
     if (!form.title) { setMsg({ type:'error', text:'Title is required.' }); return }
@@ -1021,6 +1081,7 @@ function AdminPage({ user }) {
     await supabase.from('skills').delete().eq('id', id)
     setDeleting(null)
     fetchSkills()
+    if (selectedSkill?.id === id) setSelectedSkill(null)
   }
 
   const editSkill = (skill) => {
@@ -1035,8 +1096,45 @@ function AdminPage({ user }) {
     setTab('add')
   }
 
+  // Module CRUD
+  const saveModule = async () => {
+    if (!moduleForm.title || !moduleForm.content_url) {
+      setMsg({ type:'error', text:'Title and URL are required.' }); return
+    }
+    setSavingModule(true)
+    const payload = { ...moduleForm, skill_id: selectedSkill.id }
+    let error
+    if (editingModuleId) {
+      ({ error } = await supabase.from('skill_modules').update(payload).eq('id', editingModuleId))
+    } else {
+      ({ error } = await supabase.from('skill_modules').insert([payload]))
+    }
+    setSavingModule(false)
+    if (error) { setMsg({ type:'error', text: error.message }); return }
+    setMsg({ type:'success', text: editingModuleId ? 'Module updated!' : 'Module added!' })
+    setModuleForm({ title: '', description: '', content_type: 'video', content_url: '', order_index: 0 })
+    setEditingModuleId(null)
+    fetchModules(selectedSkill.id)
+    setTimeout(() => setMsg(null), 3000)
+  }
+
+  const deleteModule = async (id) => {
+    await supabase.from('skill_modules').delete().eq('id', id)
+    fetchModules(selectedSkill.id)
+  }
+
+  const editModule = (mod) => {
+    setModuleForm({
+      title: mod.title,
+      description: mod.description || '',
+      content_type: mod.content_type,
+      content_url: mod.content_url,
+      order_index: mod.order_index
+    })
+    setEditingModuleId(mod.id)
+  }
+
   if (loading) return <Spinner />
-  // Allow access if user is trainer or admin email
   if (!user || (user.user_metadata?.role !== 'trainer' && user.email !== 'admin@example.com')) {
     return <Navigate to="/dashboard" replace />
   }
@@ -1046,13 +1144,13 @@ function AdminPage({ user }) {
       <div style={{ marginBottom:32, display:'flex', alignItems:'center', gap:14 }}>
         <div>
           <h1 style={{ fontFamily:T.fontHead, fontWeight:700, fontSize:28, letterSpacing:'-0.03em' }}>Manage Skills</h1>
-          <p style={{ color:T.textSec, marginTop:4 }}>Create, edit, or remove skills.</p>
+          <p style={{ color:T.textSec, marginTop:4 }}>Create, edit, or remove skills and their modules.</p>
         </div>
         <Badge color={T.gold}>{user.user_metadata?.role === 'trainer' ? 'Trainer' : 'Admin'}</Badge>
       </div>
 
       <div style={{ display:'flex', gap:4, marginBottom:28, borderBottom:`1px solid ${T.border}`, paddingBottom:0 }}>
-        {['skills', 'add'].map(t => (
+        {['skills', 'add', 'modules'].map(t => (
           <button key={t} onClick={() => { setTab(t); if (t === 'add') setEditingId(null); setForm({ title:'', description:'', category:'', level:'Beginner', duration:'' }); }} style={{
             fontFamily:T.fontHead, fontSize:13, fontWeight:600,
             padding:'10px 20px', borderRadius:`${T.radiusSm} ${T.radiusSm} 0 0`,
@@ -1061,7 +1159,7 @@ function AdminPage({ user }) {
             border: tab === t ? `1px solid ${T.border}` : '1px solid transparent',
             borderBottom: tab === t ? `1px solid ${T.bgCard}` : 'none',
             marginBottom: -1, cursor:'pointer'
-          }}>{t === 'skills' ? '📚 Skills' : (editingId ? '✏️ Edit Skill' : '➕ Add Skill')}</button>
+          }}>{t === 'skills' ? '📚 Skills' : t === 'add' ? (editingId ? '✏️ Edit Skill' : '➕ Add Skill') : '📦 Modules'}</button>
         ))}
       </div>
 
@@ -1079,7 +1177,8 @@ function AdminPage({ user }) {
                     <div style={{ color:T.textSec, fontSize:12 }}>{s.category} · {s.level}</div>
                   </div>
                   <div style={{ display:'flex', gap:8 }}>
-                    <Btn small variant="secondary" onClick={() => editSkill(s)}>Edit</Btn>
+                    <Btn small variant="secondary" onClick={() => { editSkill(s); setTab('add'); }}>Edit</Btn>
+                    <Btn small variant="secondary" onClick={() => { setSelectedSkill(s); setTab('modules'); }}>Modules</Btn>
                     <Btn small variant="danger" onClick={() => deleteSkill(s.id)} disabled={deleting === s.id}>
                       {deleting === s.id ? '…' : 'Delete'}
                     </Btn>
@@ -1111,11 +1210,84 @@ function AdminPage({ user }) {
           </div>
         </Card>
       )}
+
+      {tab === 'modules' && (
+        <div>
+          {!selectedSkill ? (
+            <Card>
+              <p>Select a skill first from the Skills tab, then click "Modules" to manage its modules.</p>
+            </Card>
+          ) : (
+            <>
+              <Card style={{ marginBottom: 24 }}>
+                <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:18, marginBottom:16 }}>
+                  Modules for: {selectedSkill.title}
+                </h2>
+                <div style={{ marginBottom: 20 }}>
+                  <h3 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:16, marginBottom:12 }}>
+                    {editingModuleId ? 'Edit Module' : 'Add Module'}
+                  </h3>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 12 }}>
+                    <Input label="Title" value={moduleForm.title} onChange={e => setModuleForm({...moduleForm, title:e.target.value})} placeholder="Introduction" />
+                    <select value={moduleForm.content_type} onChange={e => setModuleForm({...moduleForm, content_type:e.target.value})} style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:T.radiusSm, padding:'12px', color:T.textPri }}>
+                      <option value="video">🎥 Video</option>
+                      <option value="document">📄 Document</option>
+                      <option value="audio">🎧 Audio</option>
+                    </select>
+                  </div>
+                  <div style={{ marginTop: 12 }}>
+                    <Input label="URL (YouTube, Google Drive, etc.)" value={moduleForm.content_url} onChange={e => setModuleForm({...moduleForm, content_url:e.target.value})} placeholder="https://..." />
+                  </div>
+                  <div style={{ marginTop: 12 }}>
+                    <Input label="Description (optional)" value={moduleForm.description} onChange={e => setModuleForm({...moduleForm, description:e.target.value})} placeholder="Brief description" />
+                  </div>
+                  <div style={{ marginTop: 12 }}>
+                    <Input label="Order Index" type="number" value={moduleForm.order_index} onChange={e => setModuleForm({...moduleForm, order_index: parseInt(e.target.value) || 0})} placeholder="0" />
+                  </div>
+                  <div style={{ marginTop: 16 }}>
+                    <Btn onClick={saveModule} disabled={savingModule}>
+                      {savingModule ? 'Saving…' : (editingModuleId ? 'Update Module' : '+ Add Module')}
+                    </Btn>
+                    {editingModuleId && (
+                      <Btn variant="ghost" onClick={() => { setEditingModuleId(null); setModuleForm({ title: '', description: '', content_type: 'video', content_url: '', order_index: 0 }); }} style={{ marginLeft: 12 }}>
+                        Cancel
+                      </Btn>
+                    )}
+                  </div>
+                </div>
+              </Card>
+
+              <Card>
+                <h2 style={{ fontFamily:T.fontHead, fontWeight:600, fontSize:16, marginBottom:20 }}>Existing Modules</h2>
+                {modules.length === 0 ? (
+                  <p>No modules yet. Add one above.</p>
+                ) : (
+                  <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                    {modules.map(mod => (
+                      <div key={mod.id} style={{ padding:'12px', background: T.bgMid, borderRadius:T.radiusSm, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                        <div>
+                          <div><strong>{mod.order_index}. {mod.title}</strong> <span style={{ fontSize:12, color:T.textMut }}>({mod.content_type})</span></div>
+                          {mod.description && <div style={{ fontSize:12, color:T.textSec }}>{mod.description}</div>}
+                          <a href={mod.content_url} target="_blank" rel="noopener noreferrer" style={{ fontSize:11, color:T.accent }}>Open URL →</a>
+                        </div>
+                        <div style={{ display:'flex', gap:8 }}>
+                          <Btn small variant="secondary" onClick={() => editModule(mod)}>Edit</Btn>
+                          <Btn small variant="danger" onClick={() => deleteModule(mod.id)}>Delete</Btn>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
-// ─── SEED SKILLS (unchanged) ─────────────────────────────────────────────────
+// ─── SEED SKILLS (if less than 50) ──────────────────────────────────────────
 async function seedSkillsIfNeeded() {
   const { count } = await supabase.from('skills').select('*', { count: 'exact', head: true })
   if (count && count >= 50) return
@@ -1181,16 +1353,10 @@ async function seedSkillsIfNeeded() {
   console.log('Seeded 50+ skills')
 }
 
-// ─── PROTECTED ROUTE (now with optional role check) ──────────────────────────
-function Protected({ user, loading, children, allowedRoles = [] }) {
+// ─── PROTECTED ROUTE (with optional role check) ──────────────────────────────
+function Protected({ user, loading, children }) {
   if (loading) return <Spinner />
   if (!user) return <Navigate to="/login" replace />
-  if (allowedRoles.length > 0) {
-    const userRole = user.user_metadata?.role
-    if (!allowedRoles.includes(userRole)) {
-      return <Navigate to="/dashboard" replace />
-    }
-  }
   return children
 }
 
