@@ -281,69 +281,422 @@ const PASS_THRESHOLD = 0.7; // 70% to pass
 
 function getQuiz(moduleTitle) {
   const t = (moduleTitle || '').toLowerCase();
-  if (t.includes('react') || t.includes('component') || t.includes('hooks')) {
-    return [
-      { q: 'In React, a component re-renders when:', options: ['The DOM changes directly', 'State or props change', 'The browser scrolls', 'CSS is updated'], answer: 1 },
-      { q: 'What hook is used to manage local state in a function component?', options: ['useEffect', 'useContext', 'useState', 'useRef'], answer: 2 },
-      { q: 'JSX is:', options: ['A JavaScript library', 'A syntax extension that looks like HTML inside JS', 'A CSS preprocessor', 'A database query language'], answer: 1 },
-      { q: 'Props in React are:', options: ['Mutable inside the child component', 'Read-only inputs passed from parent to child', 'Global variables', 'CSS class names'], answer: 1 },
-      { q: 'useEffect runs:', options: ['Before the component mounts', 'After every render by default', 'Only on unmount', 'Never automatically'], answer: 1 },
-    ];
-  }
-  if (t.includes('python') || t.includes('django') || t.includes('flask')) {
-    return [
-      { q: 'Python list comprehensions are used to:', options: ['Delete items from a list', 'Create new lists concisely from iterables', 'Sort lists alphabetically only', 'Convert lists to strings'], answer: 1 },
-      { q: 'In Python, "def" is used to:', options: ['Define a variable', 'Import a module', 'Define a function', 'Create a class'], answer: 2 },
-      { q: 'Which data structure uses key-value pairs in Python?', options: ['List', 'Tuple', 'Set', 'Dictionary'], answer: 3 },
-      { q: 'What does "pip" do?', options: ['Runs Python scripts', 'Manages Python packages', 'Formats Python code', 'Compiles Python to bytecode'], answer: 1 },
-      { q: 'Virtual environments are used to:', options: ['Speed up Python execution', 'Isolate project dependencies', 'Enable multi-threading', 'Connect to databases'], answer: 1 },
-    ];
-  }
-  if (t.includes('css') || t.includes('html') || t.includes('web') || t.includes('frontend')) {
-    return [
-      { q: 'The CSS box model consists of:', options: ['Color, font, border, padding', 'Content, padding, border, margin', 'Header, footer, section, aside', 'Flex, grid, block, inline'], answer: 1 },
-      { q: 'Flexbox is primarily used for:', options: ['Database queries', '3D transforms', 'One-dimensional layout (row or column)', 'Animation keyframes'], answer: 2 },
-      { q: 'Which HTML tag is used for the main navigation?', options: ['<main>', '<header>', '<nav>', '<section>'], answer: 2 },
-      { q: 'CSS specificity determines:', options: ['How fast a page loads', 'Which CSS rule applies when multiple rules match', 'The order of HTML elements', 'The number of HTTP requests'], answer: 1 },
-      { q: 'A semantic HTML element is one that:', options: ['Has no styling by default', 'Clearly describes its meaning/purpose', 'Is only used inside <head>', 'Cannot contain text'], answer: 1 },
-    ];
-  }
-  if (t.includes('sql') || t.includes('database') || t.includes('postgres') || t.includes('mysql')) {
-    return [
-      { q: 'SELECT * FROM users WHERE active = true — this query:', options: ['Deletes all active users', 'Returns all columns for active users', 'Updates active users', 'Creates a new table'], answer: 1 },
-      { q: 'A PRIMARY KEY in a database table:', options: ['Can be NULL', 'Uniquely identifies each row', 'Is always an integer', 'Must be a foreign key too'], answer: 1 },
-      { q: 'JOIN in SQL is used to:', options: ['Combine rows from two or more tables', 'Delete duplicate rows', 'Create a new table', 'Sort query results'], answer: 0 },
-      { q: 'Indexing a database column improves:', options: ['Insert speed', 'Query/read performance', 'Storage efficiency', 'Data integrity'], answer: 1 },
-      { q: 'ACID in databases stands for:', options: ['Atomicity, Consistency, Isolation, Durability', 'Access, Control, Index, Delete', 'Array, Cache, Insert, Drop', 'Architecture, Code, Interface, Data'], answer: 0 },
-    ];
-  }
-  // default quiz
+
+  // ─── MATHEMATICS ───
+  if (t.includes('limit')) return [
+    { q: 'What does lim(x→a) f(x) = L mean?', options: ['f(a) equals L', 'f(x) approaches L as x approaches a', 'The function is undefined at a', 'L is the slope'], answer: 1 },
+    { q: 'Which technique resolves 0/0 indeterminate forms?', options: ['Substitution only', "L'Hôpital's Rule", 'Integration', 'Factoring the denominator'], answer: 1 },
+    { q: 'A one-sided limit considers values from:', options: ['Both directions', 'Only the left or right side', 'Infinity only', 'The y-axis'], answer: 1 },
+    { q: 'If lim(x→2) f(x) = 5, then f(2) must equal 5:', options: ['Always true', 'Not necessarily true', 'Only for polynomials', 'Only for continuous functions'], answer: 1 },
+    { q: 'The Squeeze Theorem requires:', options: ['Two functions', 'Three functions where the middle is bounded', 'Derivatives', 'Integrals'], answer: 1 },
+  ];
+  if (t.includes('derivative') || t.includes('differentiation') || t.includes('chain rule')) return [
+    { q: 'The derivative of f(x) represents:', options: ['The area under the curve', 'The instantaneous rate of change', 'The maximum value', 'The integral'], answer: 1 },
+    { q: 'The chain rule is used when:', options: ['Adding functions', 'Differentiating composite functions', 'Integrating', 'Finding limits'], answer: 1 },
+    { q: 'd/dx [x^n] equals:', options: ['x^(n+1)', 'n·x^(n-1)', 'n·x^n', 'x^(n-1)/n'], answer: 1 },
+    { q: 'Implicit differentiation is needed when:', options: ['y is explicitly solved for x', 'y and x are mixed in an equation', 'The function is linear', 'You need the integral'], answer: 1 },
+    { q: 'The derivative of sin(x) is:', options: ['-cos(x)', 'cos(x)', 'tan(x)', 'sin(x)'], answer: 1 },
+  ];
+  if (t.includes('integration') || t.includes('integral') || t.includes('antiderivative')) return [
+    { q: 'The integral is the reverse of:', options: ['Multiplication', 'Differentiation', 'Factoring', 'Limit evaluation'], answer: 1 },
+    { q: 'The Fundamental Theorem of Calculus connects:', options: ['Limits and series', 'Derivatives and integrals', 'Vectors and matrices', 'Probability and statistics'], answer: 1 },
+    { q: 'U-substitution is analogous to:', options: ['The product rule', 'The chain rule in reverse', 'The quotient rule', 'The power rule'], answer: 1 },
+    { q: '∫ x^n dx (n≠-1) equals:', options: ['x^(n+1)/(n+1) + C', 'n·x^(n-1) + C', 'x^n/n + C', 'ln|x| + C'], answer: 0 },
+    { q: 'A definite integral gives:', options: ['A function', 'A number (net area)', 'A derivative', 'An equation'], answer: 1 },
+  ];
+  if (t.includes('vector') || t.includes('linear transformation') || t.includes('matrix') || t.includes('determinant') || t.includes('eigen') || t.includes('dot product')) return [
+    { q: 'A vector space must have:', options: ['Only real numbers', 'Addition and scalar multiplication closure', 'Exactly 3 dimensions', 'A determinant'], answer: 1 },
+    { q: 'A linear transformation preserves:', options: ['Only angles', 'Addition and scalar multiplication', 'Only distances', 'Only the origin'], answer: 1 },
+    { q: 'The determinant of a matrix measures:', options: ['The trace', 'The scaling factor of the transformation', 'The number of rows', 'The rank only'], answer: 1 },
+    { q: 'An eigenvector is a vector that:', options: ['Becomes zero after transformation', 'Only gets scaled (not rotated) by the transformation', 'Is always unit length', 'Has no eigenvalue'], answer: 1 },
+    { q: 'Matrix multiplication is:', options: ['Always commutative', 'Generally not commutative', 'Only defined for square matrices', 'The same as element-wise multiplication'], answer: 1 },
+  ];
+  if (t.includes('statistics') || t.includes('descriptive') || t.includes('probability') || t.includes('normal distribution') || t.includes('hypothesis')) return [
+    { q: 'The mean is:', options: ['The middle value', 'The most frequent value', 'The arithmetic average', 'The range'], answer: 2 },
+    { q: 'Standard deviation measures:', options: ['Central tendency', 'Spread/dispersion of data', 'The median', 'Sample size'], answer: 1 },
+    { q: 'A p-value less than 0.05 typically means:', options: ['Accept null hypothesis', 'Result is statistically significant', 'The sample is too small', 'There is no effect'], answer: 1 },
+    { q: 'The normal distribution is:', options: ['Always skewed right', 'Bell-shaped and symmetric', 'Uniform', 'Bimodal'], answer: 1 },
+    { q: 'A Type I error is:', options: ['Failing to reject a false null', 'Rejecting a true null hypothesis', 'A calculation mistake', 'Using the wrong test'], answer: 1 },
+  ];
+
+  // ─── PHYSICS ───
+  if (t.includes('newton') || t.includes('kinematics') || t.includes('momentum') || t.includes('circular motion') || t.includes('work') && t.includes('energy')) return [
+    { q: "Newton's Second Law states:", options: ['F = ma', 'E = mc²', 'F = mv', 'a = v/d'], answer: 0 },
+    { q: 'Momentum is conserved when:', options: ['Friction is present', 'No external net force acts on the system', 'Objects are at rest', 'Energy is not conserved'], answer: 1 },
+    { q: 'Kinetic energy equals:', options: ['mgh', '½mv²', 'Fd', 'mv'], answer: 1 },
+    { q: 'In circular motion, centripetal force points:', options: ['Tangent to the circle', 'Toward the center', 'Away from center', 'Upward'], answer: 1 },
+    { q: 'An inelastic collision conserves:', options: ['Kinetic energy only', 'Momentum only', 'Both KE and momentum', 'Neither'], answer: 1 },
+  ];
+  if (t.includes('coulomb') || t.includes('circuit') || t.includes('magnetic') || t.includes('electromagnetic') || t.includes('maxwell')) return [
+    { q: "Coulomb's Law describes the force between:", options: ['Masses', 'Electric charges', 'Magnets only', 'Neutrons'], answer: 1 },
+    { q: "Ohm's Law states:", options: ['V = IR', 'F = ma', 'E = hf', 'P = IV only'], answer: 0 },
+    { q: 'A magnetic field is produced by:', options: ['Static charges', 'Moving charges / current', 'Gravity', 'Neutrons'], answer: 1 },
+    { q: "Faraday's Law relates:", options: ['Force and acceleration', 'Changing magnetic flux to induced EMF', 'Resistance and temperature', 'Charge and voltage'], answer: 1 },
+    { q: "Maxwell's equations unify:", options: ['Mechanics and thermodynamics', 'Electricity and magnetism', 'Gravity and electromagnetism', 'Optics and acoustics'], answer: 1 },
+  ];
+  if (t.includes('solar system') || t.includes('star') || t.includes('galax') || t.includes('black hole') || t.includes('big bang') || t.includes('cosmology')) return [
+    { q: 'The largest planet in our solar system is:', options: ['Saturn', 'Jupiter', 'Neptune', 'Earth'], answer: 1 },
+    { q: 'A star produces energy through:', options: ['Chemical combustion', 'Nuclear fusion', 'Nuclear fission', 'Gravitational friction'], answer: 1 },
+    { q: 'A black hole forms when:', options: ['A planet explodes', 'A massive star collapses under gravity', 'Galaxies collide', 'Light is reflected'], answer: 1 },
+    { q: 'The Big Bang theory describes:', options: ['A massive explosion in space', 'The expansion of the universe from a singularity', 'The creation of black holes', 'The collision of galaxies'], answer: 1 },
+    { q: 'The Milky Way is classified as a:', options: ['Elliptical galaxy', 'Spiral galaxy', 'Irregular galaxy', 'Ring galaxy'], answer: 1 },
+  ];
+
+  // ─── CHEMISTRY ───
+  if (t.includes('atomic') || t.includes('periodic table') || t.includes('chemical bond') || t.includes('balancing') || t.includes('acid') || t.includes('ph')) return [
+    { q: 'Protons determine an element\'s:', options: ['Mass number', 'Atomic number (identity)', 'Electron configuration', 'Isotope type'], answer: 1 },
+    { q: 'Ionic bonds form between:', options: ['Two nonmetals', 'A metal and a nonmetal', 'Two metals', 'Noble gases'], answer: 1 },
+    { q: 'A balanced equation has equal:', options: ['Molecules on each side', 'Atoms of each element on both sides', 'Coefficients', 'Energy'], answer: 1 },
+    { q: 'A pH of 3 indicates:', options: ['A strong base', 'A strong acid', 'Neutral', 'A weak base'], answer: 1 },
+    { q: 'Elements in the same group have similar:', options: ['Masses', 'Chemical properties', 'Colors', 'States of matter'], answer: 1 },
+  ];
+  if (t.includes('organic') || t.includes('carbon') && t.includes('functional') || t.includes('nomenclature') || t.includes('stereochemistry') || t.includes('substitution reaction') || t.includes('elimination reaction') || t.includes('sn1') || t.includes('sn2') || t.includes('e1') || t.includes('e2')) return [
+    { q: 'Organic chemistry primarily studies compounds containing:', options: ['Iron', 'Carbon', 'Silicon', 'Nitrogen only'], answer: 1 },
+    { q: 'An enantiomer is a:', options: ['Structural isomer', 'Non-superimposable mirror image', 'Geometric isomer', 'Resonance structure'], answer: 1 },
+    { q: 'SN2 reactions proceed via:', options: ['Carbocation intermediate', 'A single concerted step', 'Radical intermediate', 'Two elimination steps'], answer: 1 },
+    { q: 'IUPAC nomenclature provides:', options: ['Common names', 'Systematic, unique names for compounds', 'Only trivial names', 'Trade names'], answer: 1 },
+    { q: 'E2 elimination requires:', options: ['A weak base', 'A strong base and anti-periplanar geometry', 'An aqueous solvent', 'A primary carbocation'], answer: 1 },
+  ];
+
+  // ─── BIOLOGY ───
+  if (t.includes('dna') || t.includes('rna') || t.includes('transcription') || t.includes('translation') || t.includes('gene') || t.includes('crispr') || t.includes('protein')) return [
+    { q: 'DNA is a:', options: ['Single-stranded molecule', 'Double-stranded helix', 'Protein', 'Lipid'], answer: 1 },
+    { q: 'Transcription produces:', options: ['DNA', 'mRNA', 'Protein', 'Lipids'], answer: 1 },
+    { q: 'Ribosomes are the site of:', options: ['DNA replication', 'Transcription', 'Translation (protein synthesis)', 'Cell division'], answer: 2 },
+    { q: 'CRISPR-Cas9 is used for:', options: ['Protein folding', 'Gene editing', 'Cell division', 'Drug manufacturing'], answer: 1 },
+    { q: 'A codon consists of:', options: ['2 nucleotides', '3 nucleotides', '4 nucleotides', '1 amino acid'], answer: 1 },
+  ];
+  if (t.includes('anatomy') || t.includes('skeletal') || t.includes('muscular') || t.includes('cardiovascular') || t.includes('nervous system')) return [
+    { q: 'The smallest structural unit of bone is:', options: ['Osteocyte', 'Osteon (Haversian system)', 'Periosteum', 'Marrow'], answer: 1 },
+    { q: 'Cardiac muscle is:', options: ['Voluntary and striated', 'Involuntary and striated', 'Voluntary and smooth', 'Involuntary and smooth'], answer: 1 },
+    { q: 'The central nervous system consists of:', options: ['Heart and lungs', 'Brain and spinal cord', 'All nerves', 'Sensory organs only'], answer: 1 },
+    { q: 'Red blood cells carry:', options: ['Antibodies', 'Oxygen via hemoglobin', 'Nutrients only', 'Hormones only'], answer: 1 },
+    { q: 'Neurons transmit signals via:', options: ['Diffusion only', 'Electrical impulses and chemical synapses', 'Blood flow', 'Osmosis'], answer: 1 },
+  ];
+
+  // ─── HISTORY ───
+  if (t.includes('ancient') || t.includes('middle ages') || t.includes('renaissance') || t.includes('industrial') || t.includes('world war')) return [
+    { q: 'The Renaissance began in:', options: ['Germany', 'Italy', 'France', 'England'], answer: 1 },
+    { q: 'The Industrial Revolution started in:', options: ['The United States', 'Britain', 'France', 'Japan'], answer: 1 },
+    { q: 'Feudalism was the dominant system in:', options: ['Ancient Egypt', 'Medieval Europe', 'Modern China', 'Colonial America'], answer: 1 },
+    { q: 'World War I began in:', options: ['1912', '1914', '1918', '1939'], answer: 1 },
+    { q: 'Ancient Mesopotamia is often called the:', options: ['Cradle of Civilization', 'New World', 'Dark Continent', 'Promised Land'], answer: 0 },
+  ];
+
+  // ─── ECONOMICS ───
+  if (t.includes('gdp') || t.includes('inflation') || t.includes('monetary') || t.includes('fiscal') || t.includes('trade') || t.includes('macroeconomic')) return [
+    { q: 'GDP measures:', options: ['Government debt', 'Total economic output', 'Unemployment rate', 'Trade balance only'], answer: 1 },
+    { q: 'Inflation is:', options: ['A decrease in prices', 'A general increase in price levels', 'A recession indicator only', 'A stock market crash'], answer: 1 },
+    { q: 'The Federal Reserve controls:', options: ['Fiscal policy', 'Monetary policy', 'Trade agreements', 'Tax rates'], answer: 1 },
+    { q: 'Fiscal policy involves:', options: ['Interest rates', 'Government spending and taxation', 'Money supply', 'Exchange rates only'], answer: 1 },
+    { q: 'Comparative advantage explains why countries:', options: ['Build walls', 'Specialize and trade', 'Avoid trade', 'Print more money'], answer: 1 },
+  ];
+  if (t.includes('supply') || t.includes('demand') || t.includes('elasticity') || t.includes('consumer theory') || t.includes('market structure') || t.includes('game theory')) return [
+    { q: 'When demand increases and supply stays constant, price:', options: ['Decreases', 'Increases', 'Stays the same', 'Becomes zero'], answer: 1 },
+    { q: 'Price elasticity of demand measures:', options: ['Supply changes', 'How responsive quantity demanded is to price changes', 'Government intervention', 'Cost of production'], answer: 1 },
+    { q: 'In a monopoly, there is:', options: ['Many sellers', 'One dominant seller', 'No barriers to entry', 'Perfect information'], answer: 1 },
+    { q: 'Nash equilibrium occurs when:', options: ['One player wins', 'No player can benefit by changing strategy alone', 'All players cooperate', 'The game ends'], answer: 1 },
+    { q: 'Consumer surplus is:', options: ['Producer profit', 'The difference between willingness to pay and actual price', 'Total revenue', 'Government tax revenue'], answer: 1 },
+  ];
+
+  // ─── PSYCHOLOGY ───
+  if (t.includes('psychology') || t.includes('brain') || t.includes('neuroscience') || t.includes('memory') || t.includes('personality') || t.includes('social influence')) return [
+    { q: 'Classical conditioning was pioneered by:', options: ['Freud', 'Pavlov', 'Skinner', 'Maslow'], answer: 1 },
+    { q: 'The prefrontal cortex is responsible for:', options: ['Vision', 'Decision-making and planning', 'Breathing', 'Balance'], answer: 1 },
+    { q: 'Short-term memory can hold about:', options: ['2-3 items', '7±2 items', '20 items', 'Unlimited items'], answer: 1 },
+    { q: 'The Big Five personality traits include:', options: ['Introversion only', 'Openness, Conscientiousness, Extraversion, Agreeableness, Neuroticism', 'Id, Ego, Superego', 'Only extroversion and introversion'], answer: 1 },
+    { q: 'Conformity experiments by Asch showed people:', options: ['Never conform', 'Often conform to group pressure even when wrong', 'Only conform when threatened', 'Conform only in small groups'], answer: 1 },
+  ];
+
+  // ─── MUSIC ───
+  if (t.includes('music') || t.includes('note') || t.includes('rhythm') || t.includes('scale') || t.includes('chord') || t.includes('melody') || t.includes('counterpoint')) return [
+    { q: 'A major scale has how many notes?', options: ['5', '6', '7', '8'], answer: 2 },
+    { q: 'A triad consists of:', options: ['2 notes', '3 notes', '4 notes', '5 notes'], answer: 1 },
+    { q: 'Time signature 4/4 means:', options: ['4 beats per measure, quarter note gets one beat', '4 measures per song', '4 eighth notes', '4 half notes per measure'], answer: 0 },
+    { q: 'The I-IV-V progression is:', options: ['A minor key pattern', 'The most common chord progression', 'Used only in jazz', 'A scale type'], answer: 1 },
+    { q: 'Counterpoint involves:', options: ['Playing one melody', 'Two or more independent melodic lines', 'Only rhythm', 'Chord inversions only'], answer: 1 },
+  ];
+
+  // ─── PROGRAMMING ───
+  if (t.includes('react') || t.includes('jsx') || t.includes('usestate') || t.includes('useeffect') || t.includes('context api') || t.includes('react router') || t.includes('performance optimization') && t.includes('memo')) return [
+    { q: 'In React, a component re-renders when:', options: ['The DOM changes directly', 'State or props change', 'The browser scrolls', 'CSS is updated'], answer: 1 },
+    { q: 'What hook manages local state?', options: ['useEffect', 'useContext', 'useState', 'useRef'], answer: 2 },
+    { q: 'JSX is:', options: ['A JS library', 'A syntax extension that looks like HTML in JS', 'A CSS preprocessor', 'A database language'], answer: 1 },
+    { q: 'useEffect runs:', options: ['Before mount', 'After every render by default', 'Only on unmount', 'Never automatically'], answer: 1 },
+    { q: 'React.memo prevents re-renders when:', options: ['State changes', 'Props have not changed', 'The component unmounts', 'A new key is assigned'], answer: 1 },
+  ];
+  if (t.includes('javascript') || t.includes('js variable') || t.includes('function') && t.includes('scope') || t.includes('dom manipulation') || t.includes('array') || t.includes('promise') || t.includes('async') || t.includes('fetch api')) return [
+    { q: '"let" vs "var": let is:', options: ['Function-scoped', 'Block-scoped', 'Global only', 'Immutable'], answer: 1 },
+    { q: 'A closure is:', options: ['A syntax error', 'A function that retains access to its outer scope', 'A loop construct', 'An HTML element'], answer: 1 },
+    { q: 'Array.map() returns:', options: ['undefined', 'A new array with transformed elements', 'The original array', 'A boolean'], answer: 1 },
+    { q: 'async/await is syntactic sugar for:', options: ['Callbacks', 'Promises', 'Generators', 'Web Workers'], answer: 1 },
+    { q: 'The Fetch API returns:', options: ['A string', 'A Promise', 'An array', 'A DOM element'], answer: 1 },
+  ];
+  if (t.includes('python') || t.includes('numpy') || t.includes('pandas') || t.includes('matplotlib') || t.includes('eda') || t.includes('data analysis')) return [
+    { q: 'A Python dictionary stores:', options: ['Ordered elements only', 'Key-value pairs', 'Only strings', 'Only numbers'], answer: 1 },
+    { q: 'NumPy arrays are faster than lists because:', options: ['They use more memory', 'They use contiguous memory and vectorized operations', 'They are interpreted differently', 'They skip type checking'], answer: 1 },
+    { q: 'In Pandas, a DataFrame is:', options: ['A single column', 'A 2D labeled data structure', 'A Python function', 'A chart type'], answer: 1 },
+    { q: 'pip is used to:', options: ['Run Python scripts', 'Install Python packages', 'Compile Python', 'Debug code'], answer: 1 },
+    { q: 'EDA stands for:', options: ['Efficient Data Architecture', 'Exploratory Data Analysis', 'Extended Data Arrays', 'External Database Access'], answer: 1 },
+  ];
+  if (t.includes('typescript') || t.includes('interface') || t.includes('generic') || t.includes('utility type')) return [
+    { q: 'TypeScript adds to JavaScript:', options: ['Runtime performance', 'Static type checking', 'A new engine', 'Database support'], answer: 1 },
+    { q: 'An interface in TypeScript:', options: ['Runs code', 'Defines a contract/shape for objects', 'Is a loop', 'Creates a database'], answer: 1 },
+    { q: 'Generics allow:', options: ['Only string types', 'Writing reusable code that works with multiple types', 'Only number types', 'Runtime type conversion'], answer: 1 },
+    { q: 'Partial<T> makes all properties:', options: ['Required', 'Optional', 'Readonly', 'Deleted'], answer: 1 },
+    { q: 'TypeScript compiles to:', options: ['Python', 'JavaScript', 'C++', 'Assembly'], answer: 1 },
+  ];
+  if (t.includes('node') || t.includes('express') || t.includes('rest api') || t.includes('mongodb') || t.includes('jwt') || t.includes('mongoose')) return [
+    { q: 'Node.js runs JavaScript on:', options: ['The browser only', 'The server (V8 engine)', 'Mobile devices only', 'IoT devices only'], answer: 1 },
+    { q: 'Express.js middleware:', options: ['Replaces Node.js', 'Processes requests before they reach route handlers', 'Is a database', 'Only handles errors'], answer: 1 },
+    { q: 'REST APIs use HTTP methods like:', options: ['CONNECT only', 'GET, POST, PUT, DELETE', 'Only GET', 'FTP commands'], answer: 1 },
+    { q: 'JWT stands for:', options: ['Java Web Token', 'JSON Web Token', 'JavaScript Web Tool', 'Joint Work Task'], answer: 1 },
+    { q: 'MongoDB is a:', options: ['Relational database', 'NoSQL document database', 'Graph database only', 'Key-value store only'], answer: 1 },
+  ];
+  if (t.includes('rust') || t.includes('ownership') || t.includes('borrowing') || t.includes('struct') && t.includes('enum') || t.includes('concurrency in rust')) return [
+    { q: 'Rust prevents memory bugs through:', options: ['Garbage collection', 'Ownership and borrowing rules', 'Manual memory management', 'Reference counting only'], answer: 1 },
+    { q: 'In Rust, a value can have:', options: ['Multiple owners', 'Exactly one owner at a time', 'No owner', 'Unlimited mutable references'], answer: 1 },
+    { q: 'The ? operator in Rust:', options: ['Checks null', 'Propagates errors early', 'Creates a loop', 'Defines a variable'], answer: 1 },
+    { q: 'Rust enums can:', options: ['Only hold integers', 'Hold different types of data in each variant', 'Only be used for errors', 'Not be matched'], answer: 1 },
+    { q: 'Rust achieves "fearless concurrency" through:', options: ['A GIL', 'Ownership and type system guarantees', 'Green threads only', 'Ignoring race conditions'], answer: 1 },
+  ];
+  if (t.includes('go ') || t.includes('golang') || t.includes('goroutine') || t.includes('channel') || t.includes('http server') && t.includes('go')) return [
+    { q: 'Goroutines are:', options: ['OS threads', 'Lightweight concurrent functions managed by Go runtime', 'Processes', 'Callbacks'], answer: 1 },
+    { q: 'Channels in Go are used for:', options: ['File I/O', 'Communication between goroutines', 'HTTP requests only', 'Error handling only'], answer: 1 },
+    { q: 'Go is statically typed, meaning:', options: ['Types are checked at runtime', 'Types are checked at compile time', 'There are no types', 'Only strings exist'], answer: 1 },
+    { q: 'Go does not have:', options: ['Functions', 'Structs', 'Classes/inheritance', 'Interfaces'], answer: 2 },
+    { q: 'The "defer" keyword in Go:', options: ['Deletes a variable', 'Delays a function call until the surrounding function returns', 'Creates a goroutine', 'Imports a package'], answer: 1 },
+  ];
+  if (t.includes('vue') || t.includes('composition api') || t.includes('pinia')) return [
+    { q: 'Vue.js uses a:', options: ['Shadow DOM', 'Virtual DOM', 'No DOM', 'Server-side DOM only'], answer: 1 },
+    { q: 'The Composition API replaces:', options: ['Templates', 'The Options API for logic organization', 'Vue Router', 'Vuex entirely'], answer: 1 },
+    { q: 'ref() in Vue 3 creates:', options: ['A DOM reference only', 'A reactive reference to a value', 'A component', 'A route'], answer: 1 },
+    { q: 'Pinia is Vue\'s:', options: ['Router', 'State management library', 'CSS framework', 'Build tool'], answer: 1 },
+    { q: 'v-model in Vue provides:', options: ['One-way binding', 'Two-way data binding', 'Event handling only', 'Conditional rendering'], answer: 1 },
+  ];
+  if (t.includes('graphql') || t.includes('apollo')) return [
+    { q: 'GraphQL differs from REST by:', options: ['Using XML', 'Letting clients specify exactly what data they need', 'Being faster always', 'Using only POST'], answer: 1 },
+    { q: 'A GraphQL mutation is used to:', options: ['Read data', 'Modify data', 'Subscribe to changes', 'Define types'], answer: 1 },
+    { q: 'Apollo Client provides:', options: ['A GraphQL server', 'Client-side caching and state management for GraphQL', 'A database', 'CSS styles'], answer: 1 },
+    { q: 'GraphQL subscriptions use:', options: ['REST polling', 'WebSockets for real-time data', 'HTTP GET', 'SMTP'], answer: 1 },
+    { q: 'In GraphQL, the schema defines:', options: ['CSS styles', 'The types and relationships of your API', 'Database indexes', 'Server configuration'], answer: 1 },
+  ];
+
+  // ─── MOBILE ───
+  if (t.includes('flutter') || t.includes('dart') || t.includes('widget') || t.includes('provider') || t.includes('firebase') && t.includes('flutter')) return [
+    { q: 'Flutter uses which language?', options: ['JavaScript', 'Dart', 'Kotlin', 'Swift'], answer: 1 },
+    { q: 'In Flutter, everything is a:', options: ['View', 'Widget', 'Component', 'Fragment'], answer: 1 },
+    { q: 'StatefulWidget vs StatelessWidget: StatefulWidget:', options: ['Cannot change', 'Can maintain mutable state', 'Is faster always', 'Has no build method'], answer: 1 },
+    { q: 'Provider in Flutter is used for:', options: ['Routing', 'State management', 'Animations', 'Database'], answer: 1 },
+    { q: 'Flutter compiles to:', options: ['JavaScript only', 'Native ARM code', 'HTML/CSS', 'Java bytecode'], answer: 1 },
+  ];
+  if (t.includes('swift') || t.includes('swiftui') || t.includes('ios') || t.includes('core data') || t.includes('urlsession')) return [
+    { q: 'SwiftUI uses which paradigm?', options: ['Imperative', 'Declarative', 'Procedural only', 'Assembly-based'], answer: 1 },
+    { q: 'Optionals in Swift handle:', options: ['Errors', 'The possibility of absent values', 'Memory management', 'Concurrency'], answer: 1 },
+    { q: '@State in SwiftUI:', options: ['Is read-only', 'Creates a mutable state property', 'Is used for networking', 'Defines a route'], answer: 1 },
+    { q: 'Core Data is used for:', options: ['Networking', 'Local data persistence', 'UI rendering', 'Push notifications'], answer: 1 },
+    { q: 'URLSession handles:', options: ['UI layout', 'Network requests', 'File system only', 'Animations'], answer: 1 },
+  ];
+  if (t.includes('kotlin') || t.includes('jetpack compose') || t.includes('viewmodel') || t.includes('room database') || t.includes('retrofit')) return [
+    { q: 'Kotlin is officially supported for:', options: ['iOS only', 'Android development', 'Web only', 'Desktop only'], answer: 1 },
+    { q: 'Jetpack Compose uses:', options: ['XML layouts', 'Declarative Kotlin functions', 'JSON configs', 'HTML templates'], answer: 1 },
+    { q: 'ViewModel survives:', options: ['App restarts', 'Configuration changes like screen rotation', 'Device reboots', 'Nothing'], answer: 1 },
+    { q: 'Room is an abstraction over:', options: ['Firebase', 'SQLite', 'MongoDB', 'PostgreSQL'], answer: 1 },
+    { q: 'Retrofit is used for:', options: ['UI rendering', 'Making HTTP API calls', 'Local storage', 'Animations'], answer: 1 },
+  ];
+
+  // ─── AI/ML ───
+  if (t.includes('machine learning') || t.includes('regression') || t.includes('decision tree') || t.includes('neural network') || t.includes('model evaluation') || t.includes('unsupervised') || t.includes('introduction to ml')) return [
+    { q: 'Supervised learning uses:', options: ['Unlabeled data', 'Labeled training data', 'No data', 'Only images'], answer: 1 },
+    { q: 'Overfitting means the model:', options: ['Performs well on new data', 'Memorizes training data but fails on new data', 'Is too simple', 'Has too few parameters'], answer: 1 },
+    { q: 'A decision tree splits data based on:', options: ['Random choice', 'Feature values that maximize information gain', 'Alphabetical order', 'Data size only'], answer: 1 },
+    { q: 'Cross-validation helps:', options: ['Speed up training', 'Estimate model performance on unseen data', 'Reduce data size', 'Add more features'], answer: 1 },
+    { q: 'K-Means is a type of:', options: ['Supervised learning', 'Unsupervised clustering', 'Reinforcement learning', 'Semi-supervised learning'], answer: 1 },
+  ];
+  if (t.includes('nlp') || t.includes('tokenization') || t.includes('word embedding') || t.includes('word2vec') || t.includes('recurrent') || t.includes('transformer') || t.includes('attention') || t.includes('bert')) return [
+    { q: 'Tokenization splits text into:', options: ['Paragraphs only', 'Tokens (words, subwords, or characters)', 'Sentences only', 'Pages'], answer: 1 },
+    { q: 'Word2Vec represents words as:', options: ['One-hot vectors', 'Dense numerical vectors capturing meaning', 'Binary codes', 'Hash values'], answer: 1 },
+    { q: 'The Transformer architecture relies on:', options: ['Recurrence', 'Self-attention mechanisms', 'Convolutional layers only', 'Decision trees'], answer: 1 },
+    { q: 'BERT is pre-trained using:', options: ['Supervised classification', 'Masked language modeling', 'Reinforcement learning', 'GAN training'], answer: 1 },
+    { q: 'LSTMs solve the problem of:', options: ['Overfitting', 'Vanishing gradients in long sequences', 'Slow tokenization', 'Large vocabulary'], answer: 1 },
+  ];
+  if (t.includes('computer vision') || t.includes('image processing') || t.includes('opencv') || t.includes('cnn') || t.includes('convolutional') || t.includes('object detection') || t.includes('yolo') || t.includes('segmentation')) return [
+    { q: 'A convolution in CNNs:', options: ['Pools features', 'Applies a filter/kernel to detect features', 'Flattens the image', 'Classifies directly'], answer: 1 },
+    { q: 'Max pooling reduces:', options: ['The number of filters', 'Spatial dimensions while keeping important features', 'The learning rate', 'The batch size'], answer: 1 },
+    { q: 'YOLO stands for:', options: ['You Only Look Once', 'Your Optimized Learning Output', 'Yielding Object Location Yield', 'Yesterday\'s Output Learned Online'], answer: 0 },
+    { q: 'Image segmentation assigns:', options: ['A single label to the image', 'A label to each pixel', 'Colors only', 'Bounding boxes only'], answer: 1 },
+    { q: 'OpenCV is a library for:', options: ['Machine learning only', 'Computer vision and image processing', 'Web development', 'Database management'], answer: 1 },
+  ];
+
+  // ─── CLOUD/DEVOPS ───
+  if (t.includes('aws') || t.includes('ec2') || t.includes('s3') || t.includes('iam') || t.includes('lambda') || t.includes('serverless')) return [
+    { q: 'EC2 stands for:', options: ['Elastic Compute Cloud', 'Electronic Cloud Computing', 'Extended Core Cluster', 'Enterprise Cloud Container'], answer: 0 },
+    { q: 'S3 is used for:', options: ['Compute', 'Object storage', 'Networking', 'Databases only'], answer: 1 },
+    { q: 'IAM manages:', options: ['Storage buckets', 'Users, roles, and permissions', 'EC2 instances only', 'DNS records'], answer: 1 },
+    { q: 'AWS Lambda is:', options: ['A virtual machine', 'A serverless compute service', 'A database', 'A CDN'], answer: 1 },
+    { q: 'The shared responsibility model means:', options: ['AWS handles everything', 'Customer handles everything', 'AWS secures infrastructure, customer secures their data/apps', 'Neither is responsible'], answer: 2 },
+  ];
+  if (t.includes('docker') || t.includes('container') || t.includes('dockerfile') || t.includes('compose') || t.includes('docker network') || t.includes('volume')) return [
+    { q: 'A Docker container is:', options: ['A virtual machine', 'A lightweight isolated process environment', 'A physical server', 'An operating system'], answer: 1 },
+    { q: 'A Dockerfile defines:', options: ['Network rules', 'How to build a Docker image', 'Database schemas', 'CSS styles'], answer: 1 },
+    { q: 'Docker Compose manages:', options: ['Single containers', 'Multi-container applications', 'Cloud servers', 'Git repositories'], answer: 1 },
+    { q: 'Docker volumes are used for:', options: ['CPU allocation', 'Persisting data beyond container lifecycle', 'Network isolation', 'Image compression'], answer: 1 },
+    { q: 'Images vs Containers: an image is:', options: ['A running process', 'A blueprint/template for containers', 'A network config', 'A volume'], answer: 1 },
+  ];
+  if (t.includes('kubernetes') || t.includes('pod') || t.includes('deployment') || t.includes('service') && t.includes('networking') || t.includes('configmap') || t.includes('helm')) return [
+    { q: 'A Pod in Kubernetes is:', options: ['A single container always', 'The smallest deployable unit (one or more containers)', 'A cluster', 'A node'], answer: 1 },
+    { q: 'A Kubernetes Service provides:', options: ['Storage', 'Stable network access to Pods', 'CI/CD pipelines', 'Monitoring only'], answer: 1 },
+    { q: 'Helm is:', options: ['A container runtime', 'A package manager for Kubernetes', 'A monitoring tool', 'A cloud provider'], answer: 1 },
+    { q: 'ConfigMaps store:', options: ['Container images', 'Non-sensitive configuration data', 'Secrets only', 'Pod definitions'], answer: 1 },
+    { q: 'A Deployment manages:', options: ['Network policies only', 'The desired state of Pod replicas', 'Storage volumes', 'User authentication'], answer: 1 },
+  ];
+
+  // ─── SECURITY ───
+  if (t.includes('cybersecurity') || t.includes('crypto') || t.includes('phishing') || t.includes('attack') || t.includes('security best') || t.includes('threat') || t.includes('firewall') || t.includes('networking fundamentals')) return [
+    { q: 'The CIA triad stands for:', options: ['Central Intelligence Agency', 'Confidentiality, Integrity, Availability', 'Compute, Infrastructure, Access', 'Cloud, IoT, AI'], answer: 1 },
+    { q: 'Phishing is:', options: ['A network protocol', 'A social engineering attack using fake communications', 'A type of malware', 'A firewall rule'], answer: 1 },
+    { q: 'Symmetric encryption uses:', options: ['Two different keys', 'One shared key for encrypt/decrypt', 'No key', 'A hash function'], answer: 1 },
+    { q: 'SQL injection exploits:', options: ['Weak passwords', 'Unsanitized user input in database queries', 'Network protocols', 'Physical access'], answer: 1 },
+    { q: 'Two-factor authentication adds:', options: ['Two passwords', 'A second verification method beyond password', 'Two usernames', 'Two email addresses'], answer: 1 },
+  ];
+  if (t.includes('ethical hacking') || t.includes('reconnaissance') || t.includes('scanning') || t.includes('enumeration') || t.includes('exploitation') || t.includes('penetration') || t.includes('owasp') || t.includes('metasploit')) return [
+    { q: 'Ethical hacking is:', options: ['Illegal hacking', 'Authorized testing to find security vulnerabilities', 'Guessing passwords', 'Installing malware'], answer: 1 },
+    { q: 'OSINT stands for:', options: ['Open Source Intelligence', 'Operating System Integration', 'Online Security Interface Tool', 'Output Signal Network Test'], answer: 0 },
+    { q: 'Nmap is primarily used for:', options: ['Web development', 'Network scanning and port discovery', 'Database management', 'Email encryption'], answer: 1 },
+    { q: 'OWASP Top 10 lists:', options: ['Best programming languages', 'Most critical web security risks', 'Top databases', 'Best cloud providers'], answer: 1 },
+    { q: 'A penetration test simulates:', options: ['A backup procedure', 'A real-world attack to identify weaknesses', 'A software update', 'Network monitoring'], answer: 1 },
+  ];
+
+  // ─── BLOCKCHAIN ───
+  if (t.includes('blockchain') || t.includes('bitcoin') || t.includes('ethereum') || t.includes('solidity') || t.includes('smart contract') || t.includes('defi') || t.includes('web3')) return [
+    { q: 'A blockchain is:', options: ['A centralized database', 'A distributed, immutable ledger', 'A web framework', 'A programming language'], answer: 1 },
+    { q: 'Smart contracts are:', options: ['Legal documents', 'Self-executing code on a blockchain', 'Email templates', 'API endpoints'], answer: 1 },
+    { q: 'Ethereum differs from Bitcoin by supporting:', options: ['Only payments', 'Smart contracts and dApps', 'Faster mining only', 'Physical coins'], answer: 1 },
+    { q: 'DeFi stands for:', options: ['Defined Finance', 'Decentralized Finance', 'Default Finance', 'Deferred Finance'], answer: 1 },
+    { q: 'Consensus mechanisms ensure:', options: ['Faster internet', 'Agreement on the state of the blockchain', 'Lower electricity', 'Better graphics'], answer: 1 },
+  ];
+
+  // ─── DATABASE ───
+  if (t.includes('sql') || t.includes('select') || t.includes('join') || t.includes('normalization') || t.includes('index') || t.includes('transaction') || t.includes('acid')) return [
+    { q: 'SELECT * FROM users WHERE active = true returns:', options: ['Nothing', 'All columns for active users', 'Only the first user', 'User count'], answer: 1 },
+    { q: 'A PRIMARY KEY:', options: ['Can be NULL', 'Uniquely identifies each row', 'Is always auto-increment', 'Must be a string'], answer: 1 },
+    { q: 'INNER JOIN returns:', options: ['All rows from both tables', 'Only matching rows from both tables', 'All rows from the left table', 'All rows from the right table'], answer: 1 },
+    { q: 'Database normalization reduces:', options: ['Query speed', 'Data redundancy', 'Table count', 'Column count'], answer: 1 },
+    { q: 'An index improves:', options: ['Insert speed', 'Read/query performance', 'Storage efficiency', 'Data integrity'], answer: 1 },
+  ];
+
+  // ─── DESIGN ───
+  if (t.includes('design thinking') || t.includes('figma') || t.includes('color theory') || t.includes('typography') || t.includes('wireframe') || t.includes('prototype') || t.includes('usability')) return [
+    { q: 'Design Thinking has how many phases?', options: ['3', '4', '5', '7'], answer: 2 },
+    { q: 'A wireframe is:', options: ['A high-fidelity design', 'A low-fidelity structural blueprint', 'A coded prototype', 'A color palette'], answer: 1 },
+    { q: 'Usability testing involves:', options: ['Code review', 'Real users testing the interface', 'Automated testing', 'A/B email campaigns'], answer: 1 },
+    { q: 'Figma auto-layout helps with:', options: ['Color selection', 'Responsive and dynamic layouts', 'Font loading', 'Image compression'], answer: 1 },
+    { q: 'Visual hierarchy is established through:', options: ['Random placement', 'Size, color, contrast, and spacing', 'Only font choice', 'Only alignment'], answer: 1 },
+  ];
+  if (t.includes('accessibility') || t.includes('wcag') || t.includes('aria') || t.includes('screen reader') || t.includes('keyboard navigation') || t.includes('semantic html')) return [
+    { q: 'WCAG stands for:', options: ['Web Content Accessibility Guidelines', 'World Computer Access Group', 'Web CSS Arrangement Guide', 'Wireless Content Access Gateway'], answer: 0 },
+    { q: 'ARIA attributes help:', options: ['SEO only', 'Assistive technologies understand UI elements', 'Page speed', 'CSS styling'], answer: 1 },
+    { q: 'Semantic HTML means using:', options: ['Only <div> tags', 'Elements that describe their meaning (nav, main, article)', 'Inline styles', 'Only class names'], answer: 1 },
+    { q: 'Keyboard navigation requires all interactive elements to be:', options: ['Hidden', 'Focusable and operable via keyboard', 'Visible only on hover', 'Mouse-clickable only'], answer: 1 },
+    { q: 'Color alone should not convey information because:', options: ['It looks ugly', 'Colorblind users may not perceive it', 'It uses more bandwidth', 'It is deprecated'], answer: 1 },
+  ];
+
+  // ─── DATA SCIENCE ───
+  if (t.includes('visualization') || t.includes('tableau') || t.includes('d3') || t.includes('storytelling') || t.includes('dashboard') || t.includes('chart')) return [
+    { q: 'A bar chart is best for:', options: ['Showing trends over time', 'Comparing categories', 'Showing proportions', 'Correlations'], answer: 1 },
+    { q: 'Tableau is:', options: ['A programming language', 'A data visualization tool', 'A database', 'A spreadsheet'], answer: 1 },
+    { q: 'D3.js creates visualizations using:', options: ['Canvas only', 'SVG, HTML, and CSS driven by data', 'WebGL only', 'Flash'], answer: 1 },
+    { q: 'Data storytelling combines:', options: ['Only numbers', 'Data, visuals, and narrative', 'Only charts', 'Only text'], answer: 1 },
+    { q: 'An interactive dashboard allows users to:', options: ['Only view static charts', 'Filter, drill down, and explore data', 'Write SQL queries', 'Edit the database'], answer: 1 },
+  ];
+  if (t.includes('big data') || t.includes('hadoop') || t.includes('hdfs') || t.includes('mapreduce') || t.includes('spark') || t.includes('etl') || t.includes('pipeline')) return [
+    { q: 'The 3 Vs of Big Data are:', options: ['Value, Variety, Vision', 'Volume, Velocity, Variety', 'Version, Validation, Verification', 'Virtual, Volatile, Variable'], answer: 1 },
+    { q: 'HDFS stands for:', options: ['High Data File System', 'Hadoop Distributed File System', 'Hard Drive Format System', 'Hybrid Data Framework Service'], answer: 1 },
+    { q: 'MapReduce processes data in:', options: ['One step', 'Two phases: Map (transform) and Reduce (aggregate)', 'Three phases', 'Random order'], answer: 1 },
+    { q: 'Apache Spark is faster than MapReduce because:', options: ['It uses more disk', 'It processes data in-memory', 'It uses fewer nodes', 'It skips the reduce step'], answer: 1 },
+    { q: 'ETL stands for:', options: ['Extract, Transform, Load', 'Encode, Transfer, Log', 'Enable, Test, Launch', 'Export, Translate, Link'], answer: 0 },
+  ];
+
+  // ─── BUSINESS ───
+  if (t.includes('digital marketing') || t.includes('seo') || t.includes('social media marketing') || t.includes('email marketing') || t.includes('google analytics')) return [
+    { q: 'SEO stands for:', options: ['Social Email Outreach', 'Search Engine Optimization', 'Site Enhancement Output', 'Server Error Optimization'], answer: 1 },
+    { q: 'A conversion funnel tracks:', options: ['Server uptime', 'The journey from visitor to customer', 'Email server logs', 'Social media followers only'], answer: 1 },
+    { q: 'Google Analytics measures:', options: ['Email open rates only', 'Website traffic and user behavior', 'Social media posts', 'Ad spend only'], answer: 1 },
+    { q: 'Email marketing automation:', options: ['Sends random emails', 'Triggers emails based on user actions/schedules', 'Requires manual sending always', 'Only works for newsletters'], answer: 1 },
+    { q: 'A bounce rate is:', options: ['Email delivery failure', 'Percentage of visitors who leave after viewing one page', 'Server downtime', 'Click-through rate'], answer: 1 },
+  ];
+  if (t.includes('project management') || t.includes('agile') || t.includes('scrum') || t.includes('kanban') || t.includes('risk management') || t.includes('gantt')) return [
+    { q: 'In Scrum, a Sprint is:', options: ['A project phase lasting months', 'A fixed time-box (usually 1-4 weeks) for delivering work', 'A meeting type', 'A role'], answer: 1 },
+    { q: 'Kanban focuses on:', options: ['Fixed sprints', 'Continuous flow with WIP limits', 'Waterfall phases', 'Annual planning'], answer: 1 },
+    { q: 'A Gantt chart shows:', options: ['Budget breakdown', 'Task timeline and dependencies', 'Team hierarchy', 'Risk assessment'], answer: 1 },
+    { q: 'The RACI matrix defines:', options: ['Project costs', 'Roles: Responsible, Accountable, Consulted, Informed', 'Risk levels', 'Quality metrics'], answer: 1 },
+    { q: 'Risk mitigation involves:', options: ['Ignoring risks', 'Taking actions to reduce the impact or likelihood of risks', 'Accepting all risks', 'Delaying the project'], answer: 1 },
+  ];
+  if (t.includes('leadership') || t.includes('team') || t.includes('strategic') || t.includes('conflict') || t.includes('feedback')) return [
+    { q: 'Transformational leadership focuses on:', options: ['Micromanagement', 'Inspiring and motivating followers toward a vision', 'Strict rules only', 'Avoiding change'], answer: 1 },
+    { q: 'Psychological safety in teams means:', options: ['No deadlines', 'Members feel safe to take risks and speak up', 'Everyone agrees always', 'No accountability'], answer: 1 },
+    { q: 'Strategic thinking involves:', options: ['Only short-term planning', 'Long-term planning with competitive analysis', 'Reacting to problems only', 'Avoiding decisions'], answer: 1 },
+    { q: 'Constructive feedback should be:', options: ['Vague and delayed', 'Specific, timely, and actionable', 'Only positive', 'Given publicly to shame'], answer: 1 },
+    { q: 'Conflict resolution requires:', options: ['Avoiding the issue', 'Active listening and finding mutual solutions', 'Asserting dominance', 'Ignoring emotions'], answer: 1 },
+  ];
+  if (t.includes('excel') || t.includes('spreadsheet') || t.includes('pivot table') || t.includes('formula') && t.includes('function') || t.includes('vlookup')) return [
+    { q: 'VLOOKUP searches for a value in:', options: ['A row', 'The first column of a range and returns from another column', 'The last column', 'A chart'], answer: 1 },
+    { q: 'A pivot table is used to:', options: ['Format text', 'Summarize and analyze large datasets', 'Create macros', 'Write formulas'], answer: 1 },
+    { q: 'The SUM function:', options: ['Counts cells', 'Adds up values in a range', 'Finds the average', 'Finds the maximum'], answer: 1 },
+    { q: 'Conditional formatting:', options: ['Deletes data', 'Changes cell appearance based on rules', 'Creates charts', 'Sorts data'], answer: 1 },
+    { q: '$ in a cell reference (e.g., $A$1) means:', options: ['Currency format', 'Absolute reference (does not change when copied)', 'A comment', 'An error'], answer: 1 },
+  ];
+
+  // ─── SOFT SKILLS ───
+  if (t.includes('critical thinking') || t.includes('logical fallac') || t.includes('cognitive bias') || t.includes('argument') || t.includes('problem-solving') || t.includes('problem solving')) return [
+    { q: 'A logical fallacy is:', options: ['A valid argument', 'An error in reasoning that weakens an argument', 'A mathematical proof', 'A type of evidence'], answer: 1 },
+    { q: 'Confirmation bias is:', options: ['Accepting all evidence equally', 'Seeking information that supports existing beliefs', 'Rejecting all evidence', 'A statistical measure'], answer: 1 },
+    { q: 'An ad hominem fallacy attacks:', options: ['The argument', 'The person making the argument', 'The evidence', 'The conclusion'], answer: 1 },
+    { q: 'Critical thinking requires:', options: ['Accepting everything at face value', 'Questioning assumptions and evaluating evidence', 'Emotional reactions only', 'Speed over accuracy'], answer: 1 },
+    { q: 'The Socratic method involves:', options: ['Lecturing', 'Asking probing questions to stimulate thinking', 'Memorization', 'Avoiding discussion'], answer: 1 },
+  ];
+  if (t.includes('public speaking') || t.includes('stage fright') || t.includes('body language') || t.includes('delivery') || t.includes('structuring your talk') || t.includes('visual aid') || t.includes('q&a')) return [
+    { q: 'Stage fright can be managed by:', options: ['Avoiding all presentations', 'Preparation, practice, and breathing techniques', 'Reading directly from slides', 'Speaking very fast'], answer: 1 },
+    { q: 'The "Rule of Three" in presentations means:', options: ['Present for 3 minutes only', 'Group ideas into three main points', 'Use 3 slides only', 'Speak to 3 people only'], answer: 1 },
+    { q: 'Effective body language includes:', options: ['Crossing arms and looking down', 'Eye contact, open posture, and purposeful gestures', 'Standing completely still', 'Pacing rapidly'], answer: 1 },
+    { q: 'Good presentation slides should:', options: ['Have paragraphs of text', 'Use minimal text with strong visuals', 'Use small fonts', 'Be identical to the script'], answer: 1 },
+    { q: 'During Q&A, if you don\'t know the answer:', options: ['Make something up', 'Honestly say you\'ll follow up, then do so', 'Ignore the question', 'Change the subject'], answer: 1 },
+  ];
+
+  // ─── LITERATURE ───
+  if (t.includes('transcendentalism') || t.includes('harlem renaissance') || t.includes('american novel') || t.includes('postmodern') || t.includes('literary analysis')) return [
+    { q: 'Transcendentalism emphasized:', options: ['Materialism', 'Individualism and nature', 'Urban life', 'Industrialization'], answer: 1 },
+    { q: 'The Harlem Renaissance was a:', options: ['Political movement only', 'Cultural and artistic movement celebrating Black culture', 'Scientific revolution', 'Economic theory'], answer: 1 },
+    { q: '"The Great Gatsby" was written by:', options: ['Hemingway', 'F. Scott Fitzgerald', 'Steinbeck', 'Faulkner'], answer: 1 },
+    { q: 'Close reading involves:', options: ['Speed reading', 'Careful analysis of text details and language', 'Reading summaries only', 'Skimming for main ideas'], answer: 1 },
+    { q: 'Postmodern literature often features:', options: ['Strict linear narratives', 'Meta-fiction, fragmentation, and unreliable narrators', 'Only historical facts', 'Simple prose only'], answer: 1 },
+  ];
+
+  // ─── ART ───
+  if (t.includes('renaissance') && !t.includes('harlem') || t.includes('baroque') || t.includes('impressionism') || t.includes('modern art') || t.includes('contemporary art') || t.includes('cubism')) return [
+    { q: 'Renaissance art emphasized:', options: ['Abstract forms', 'Realism, perspective, and human anatomy', 'Minimalism', 'Random composition'], answer: 1 },
+    { q: 'Impressionism focused on:', options: ['Religious themes', 'Capturing light and momentary effects', 'Geometric shapes', 'Industrial subjects only'], answer: 1 },
+    { q: 'Cubism was pioneered by:', options: ['Monet and Renoir', 'Picasso and Braque', 'Da Vinci and Michelangelo', 'Warhol and Pollock'], answer: 1 },
+    { q: 'Baroque art is known for:', options: ['Simplicity', 'Dramatic use of light, color, and movement', 'Minimalism', 'Flat compositions'], answer: 1 },
+    { q: 'Contemporary art includes:', options: ['Only painting', 'Installation, digital, performance, and conceptual art', 'Only sculpture', 'Only Renaissance revival'], answer: 1 },
+  ];
+
+  // ─── PHILOSOPHY ───
+  if (t.includes('philosophy') || t.includes('ethics') || t.includes('moral') || t.includes('epistemology') || t.includes('metaphysics') || t.includes('political philosophy')) return [
+    { q: 'Utilitarianism judges actions by:', options: ['Intentions alone', 'Their consequences for overall happiness', 'Divine command', 'Tradition'], answer: 1 },
+    { q: 'Epistemology is the study of:', options: ['Ethics', 'Knowledge and justified belief', 'Beauty', 'Politics'], answer: 1 },
+    { q: "Kant's categorical imperative states:", options: ['Act for personal gain', 'Act only according to rules you could universalize', 'Might makes right', 'Follow emotions'], answer: 1 },
+    { q: 'Metaphysics explores:', options: ['Physical experiments', 'The fundamental nature of reality', 'Mathematical proofs', 'Social behavior'], answer: 1 },
+    { q: 'The social contract theory (Rousseau, Locke) argues:', options: ['Government is unnecessary', 'People consent to governance for mutual benefit', 'Only kings should rule', 'Anarchy is ideal'], answer: 1 },
+  ];
+
+  // ─── FALLBACK (should rarely trigger now) ───
   return [
-    {
-      q: 'Which of the following best describes the purpose of this module?',
-      options: ['To introduce core concepts and foundational knowledge', 'To configure network infrastructure', 'To design marketing materials', 'To manage financial spreadsheets'],
-      answer: 0
-    },
-    {
-      q: 'What is the recommended approach when learning a new technical skill?',
-      options: ['Skip theory and jump straight to projects', 'Understand concepts first, then apply them with practice', 'Memorize syntax without understanding', 'Avoid documentation and tutorials'],
-      answer: 1
-    },
-    {
-      q: 'Which habit best supports long-term skill retention?',
-      options: ['Study everything in one marathon session', 'Never review past material', 'Practice consistently with spaced repetition', 'Rely solely on passive watching'],
-      answer: 2
-    },
-    {
-      q: 'When you encounter a difficult concept, what should you do first?',
-      options: ['Skip it permanently', 'Break it into smaller sub-problems', 'Give up and switch topics', 'Ignore it and move on'],
-      answer: 1
-    },
-    {
-      q: 'What does "iterative learning" mean?',
-      options: ['Learning once and never revisiting', 'Continuously refining understanding through repeated exposure', 'Reading a book cover to cover exactly once', 'Watching videos at 3× speed only'],
-      answer: 1
-    },
+    { q: 'What is the best approach to learning a new topic in this module?', options: ['Skip the fundamentals', 'Study core concepts first, then practice', 'Only read summaries', 'Avoid asking questions'], answer: 1 },
+    { q: 'Active learning is more effective than passive learning because:', options: ['It takes less time', 'It engages deeper cognitive processing', 'It requires no effort', 'It avoids mistakes'], answer: 1 },
+    { q: 'Spaced repetition helps with:', options: ['Forgetting faster', 'Long-term retention of information', 'Speed reading', 'Cramming'], answer: 1 },
+    { q: 'When stuck on a concept, the best strategy is:', options: ['Skip it forever', 'Break it down into smaller parts and seek multiple explanations', 'Memorize without understanding', 'Move to a different subject'], answer: 1 },
+    { q: 'Applying knowledge through projects is important because:', options: ['It wastes time', 'It reinforces understanding through practical experience', 'It is optional', 'Theory alone is sufficient'], answer: 1 },
   ];
 }
 
@@ -1294,6 +1647,76 @@ const SKILLS_WITH_MODULES = [
       { title: 'Magnetic Fields & Forces', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=qLW_A4wExH4', description: 'Sources of magnetic fields, Lorentz force.' },
       { title: 'Electromagnetic Induction', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=LqRHpNjTBtA', description: "Faraday's and Lenz's laws." },
       { title: "Maxwell's Equations", content_type: 'video', content_url: 'https://www.youtube.com/watch?v=-aVeZbpxVgw', description: 'Unifying electricity and magnetism.' },
+    ]
+  },
+  {
+    title: 'Public Speaking',
+    category: 'Soft Skills',
+    level: 'Beginner',
+    description: 'Overcoming fear, structuring talks, and engaging audiences.',
+    duration: '4 weeks',
+    modules: [
+      { title: 'Overcoming Stage Fright', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=MEDgtjpycYg', description: 'Techniques to manage public speaking anxiety.' },
+      { title: 'Structuring Your Talk', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=MnIPk3cae_4', description: 'Intro, body, conclusion frameworks.' },
+      { title: 'Body Language & Delivery', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=Ks-_Mh1QhMc', description: 'Non-verbal communication and vocal variety.' },
+      { title: 'Visual Aids & Slides', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=Iwpi1Lm6dFo', description: 'Creating effective presentation slides.' },
+      { title: 'Handling Q&A Sessions', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=JGm4mfi_JVo', description: 'Fielding questions with confidence.' },
+    ]
+  },
+  {
+    title: 'Organic Chemistry',
+    category: 'Chemistry',
+    level: 'Advanced',
+    description: 'Carbon compounds, reactions, mechanisms, and stereochemistry.',
+    duration: '8 weeks',
+    modules: [
+      { title: 'Carbon & Functional Groups', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=bSMx0NS0XfY', description: 'Introduction to organic molecules.' },
+      { title: 'Nomenclature (IUPAC)', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=NsfFm3bG0sw', description: 'Naming organic compounds correctly.' },
+      { title: 'Stereochemistry', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=YAf5IWjFnCU', description: 'Chirality, enantiomers, and optical activity.' },
+      { title: 'Substitution Reactions (SN1/SN2)', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=ORwiHCGJc4o', description: 'Nucleophilic substitution mechanisms.' },
+      { title: 'Elimination Reactions (E1/E2)', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=UNwKALYMEVY', description: 'Competing pathways and product prediction.' },
+    ]
+  },
+  {
+    title: 'Astronomy & Astrophysics',
+    category: 'Physics',
+    level: 'Beginner',
+    description: 'The solar system, stars, galaxies, and the universe.',
+    duration: '5 weeks',
+    modules: [
+      { title: 'The Solar System', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=libKVRa01L8', description: 'Planets, moons, and orbits.' },
+      { title: 'Stars & Stellar Evolution', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=PM9CQDlQI0A', description: 'Life cycle of stars from birth to death.' },
+      { title: 'Galaxies & the Milky Way', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=OcEqnU7w-A4', description: 'Galaxy types, structure, and collisions.' },
+      { title: 'Black Holes', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=e-P5IFTqB98', description: 'Formation, event horizons, and Hawking radiation.' },
+      { title: 'The Big Bang & Cosmology', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=wNDGgL73ihY', description: 'Origins of the universe and cosmic expansion.' },
+    ]
+  },
+  {
+    title: 'Excel & Spreadsheets',
+    category: 'Business',
+    level: 'Beginner',
+    description: 'Formulas, pivot tables, charts, and data analysis in Excel.',
+    duration: '3 weeks',
+    modules: [
+      { title: 'Excel Basics & Navigation', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=rwbho0CgEAE', description: 'Interface, cells, and basic formatting.' },
+      { title: 'Formulas & Functions', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=Jl0Qk63z2ZY', description: 'SUM, VLOOKUP, IF, and common functions.' },
+      { title: 'Pivot Tables', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=UsdedFoTA68', description: 'Summarizing large datasets with pivots.' },
+      { title: 'Charts & Data Visualization', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=DAU0qqh_I-A', description: 'Creating effective visual reports.' },
+      { title: 'Advanced Excel Tips', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=PrCE1Asxako', description: 'Conditional formatting, macros, and shortcuts.' },
+    ]
+  },
+  {
+    title: 'Philosophy 101',
+    category: 'Humanities',
+    level: 'Beginner',
+    description: 'Ethics, logic, metaphysics, and major philosophical traditions.',
+    duration: '5 weeks',
+    modules: [
+      { title: 'What is Philosophy?', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=1A_CAkYt3GY', description: 'Introduction to philosophical inquiry.' },
+      { title: 'Ethics & Moral Philosophy', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=FOoffXFpAlU', description: 'Utilitarianism, deontology, virtue ethics.' },
+      { title: 'Epistemology: Theory of Knowledge', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=r_Y3utIeTPg', description: 'What can we know and how?' },
+      { title: 'Metaphysics: Reality & Existence', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=hTTSNb5vp1c', description: 'Free will, identity, and the nature of being.' },
+      { title: 'Political Philosophy', content_type: 'video', content_url: 'https://www.youtube.com/watch?v=BDqvzFY72mg', description: 'Justice, liberty, and social contracts.' },
     ]
   },
 ];
