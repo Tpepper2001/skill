@@ -274,6 +274,10 @@ function useAutoProgress(enrollmentId, modules, initialPct) {
 }
 
 // ─── NAVBAR ───────────────────────────────────────────────────────────────────
+function Navbar({ user, role, onSignOut }) {
+  const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { width } = useWindowSize();
   const isMobile = width <= 768;
 
   const navLinks = user
@@ -284,7 +288,6 @@ function useAutoProgress(enrollmentId, modules, initialPct) {
         ...(role === 'admin' ? [{ to:'/admin', label:'Admin' }] : [])
       ]
     : [{ to:'/', label:'Home' }, { to:'/login', label:'Sign In' }];
-
 
   return (
     <nav style={{
@@ -364,8 +367,7 @@ function useAutoProgress(enrollmentId, modules, initialPct) {
       )}
     </nav>
   );
-
-
+}
 // ─── LANDING PAGE ─────────────────────────────────────────────────────────────
 function LandingPage() {
   const navigate = useNavigate();
