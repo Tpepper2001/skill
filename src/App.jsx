@@ -274,10 +274,6 @@ function useAutoProgress(enrollmentId, modules, initialPct) {
 }
 
 // ─── NAVBAR ───────────────────────────────────────────────────────────────────
-function Navbar({ user, onSignOut }) {
-  const location = useLocation();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const { width } = useWindowSize();
   const isMobile = width <= 768;
 
   const navLinks = user
@@ -285,9 +281,10 @@ function Navbar({ user, onSignOut }) {
         { to:'/dashboard', label:'Dashboard' },
         { to:'/workshop', label:'Workshop' },
         { to:'/skills', label:'Skills' },
-        { to:'/admin', label:'Admin' }
+        ...(role === 'admin' ? [{ to:'/admin', label:'Admin' }] : [])
       ]
     : [{ to:'/', label:'Home' }, { to:'/login', label:'Sign In' }];
+
 
   return (
     <nav style={{
@@ -2036,6 +2033,9 @@ async function seedAdminUser() {
 }
 
 // ─── APP ROOT ────────────────────────────────────────────────────────────────
+
+// ... all imports and components remain same up to App function
+
 export default function App() {
   const { user, role, loading, signOut } = useAuth();
 
@@ -2052,14 +2052,25 @@ export default function App() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="*" element={
             <>
-              <Navbar user={user} onSignOut={signOut} />
+              <Navbar user={user} role={role} onSignOut={signOut} />
               <Routes>
-                <Route path="/"          element={<LandingPage />} />
-                <Route path="/dashboard" element={<Protected user={user} loading={loading}><DashboardPage user={user} /></Protected>} />
-                <Route path="/workshop"  element={<Protected user={user} loading={loading}><WorkshopPage user={user} /></Protected>} />
-                <Route path="/skills"    element={<Protected user={user} loading={loading}><SkillsPage user={user} /></Protected>} />
+                <Route path="/" element={<LandingPage />} />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <Protected user={user} loading={loading}>
+                      {role === 'admin' ? (
+                        <AdminPage user={user} />
+                      ) : (
+                        <DashboardPage user={user} />
+                      )}
+                    </Protected>
+                  }
+                />
+                <Route path="/workshop" element={<Protected user={user} loading={loading}><WorkshopPage user={user} /></Protected>} />
+                <Route path="/skills" element={<Protected user={user} loading={loading}><SkillsPage user={user} /></Protected>} />
                 <Route path="/skill/:skillId" element={<Protected user={user} loading={loading}><SkillDetailPage user={user} /></Protected>} />
-                <Route path="/admin"     element={
+                <Route path="/admin" element={
                   <Protected user={user} loading={loading}>
                     <AdminRoute user={user} role={role} loading={loading}>
                       <AdminPage user={user} />
