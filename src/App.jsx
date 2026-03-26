@@ -1,4 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+Here is the complete updated App.jsx with the upgraded skill detail page that includes video quizzes and module unlocking:
+
+```jsx
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Link, useNavigate, useLocation, Navigate, useParams } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { supabase } from './lib/supabase';
@@ -223,23 +226,318 @@ function RatingStars({ rating, onRate, readonly = false, size = 18 }) {
   );
 }
 
-// ─── AUTO PROGRESS TRACKER ──────────────────────────────────────────────────────
-function useAutoProgress(enrollmentId, modules, initialPct) {
+// ─── YOUTUBE EMBED HELPERS ────────────────────────────────────────────────────
+function getYouTubeId(url) {
+  if (!url) return null;
+  const patterns = [
+    /youtu\.be\/([^?&]+)/,
+    /youtube\.com\/watch\?v=([^&]+)/,
+    /youtube\.com\/embed\/([^?&]+)/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+function VideoPlayer({ url, moduleTitle }) {
+  const videoId = getYouTubeId(url);
+
+  if (!videoId) {
+    return (
+      <div style={{
+        background: '#0D1526', borderRadius: 10, padding: '40px 24px',
+        textAlign: 'center', color: '#8BA3C0', fontSize: 14
+      }}>
+        <div style={{ fontSize: 36, marginBottom: 12 }}>🎬</div>
+        <p>Video unavailable for this module.</p>
+        {url && (
+          <a href={url} target="_blank" rel="noopener noreferrer"
+            style={{ color: '#38BDF8', marginTop: 10, display: 'inline-block', fontSize: 13 }}>
+            Open external link →
+          </a>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, borderRadius: 10, overflow: 'hidden', background: '#000' }}>
+      <iframe
+        src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`}
+        title={moduleTitle}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+        style={{
+          position: 'absolute', top: 0, left: 0,
+          width: '100%', height: '100%', border: 'none'
+        }}
+      />
+    </div>
+  );
+}
+
+// ─── QUIZ COMPONENT ───────────────────────────────────────────────────────────
+const PASS_THRESHOLD = 0.7; // 70% to pass
+
+function getQuiz(moduleTitle) {
+  const t = (moduleTitle || '').toLowerCase();
+  if (t.includes('react') || t.includes('component') || t.includes('hooks')) {
+    return [
+      { q: 'In React, a component re-renders when:', options: ['The DOM changes directly', 'State or props change', 'The browser scrolls', 'CSS is updated'], answer: 1 },
+      { q: 'What hook is used to manage local state in a function component?', options: ['useEffect', 'useContext', 'useState', 'useRef'], answer: 2 },
+      { q: 'JSX is:', options: ['A JavaScript library', 'A syntax extension that looks like HTML inside JS', 'A CSS preprocessor', 'A database query language'], answer: 1 },
+      { q: 'Props in React are:', options: ['Mutable inside the child component', 'Read-only inputs passed from parent to child', 'Global variables', 'CSS class names'], answer: 1 },
+      { q: 'useEffect runs:', options: ['Before the component mounts', 'After every render by default', 'Only on unmount', 'Never automatically'], answer: 1 },
+    ];
+  }
+  if (t.includes('python') || t.includes('django') || t.includes('flask')) {
+    return [
+      { q: 'Python list comprehensions are used to:', options: ['Delete items from a list', 'Create new lists concisely from iterables', 'Sort lists alphabetically only', 'Convert lists to strings'], answer: 1 },
+      { q: 'In Python, "def" is used to:', options: ['Define a variable', 'Import a module', 'Define a function', 'Create a class'], answer: 2 },
+      { q: 'Which data structure uses key-value pairs in Python?', options: ['List', 'Tuple', 'Set', 'Dictionary'], answer: 3 },
+      { q: 'What does "pip" do?', options: ['Runs Python scripts', 'Manages Python packages', 'Formats Python code', 'Compiles Python to bytecode'], answer: 1 },
+      { q: 'Virtual environments are used to:', options: ['Speed up Python execution', 'Isolate project dependencies', 'Enable multi-threading', 'Connect to databases'], answer: 1 },
+    ];
+  }
+  if (t.includes('css') || t.includes('html') || t.includes('web') || t.includes('frontend')) {
+    return [
+      { q: 'The CSS box model consists of:', options: ['Color, font, border, padding', 'Content, padding, border, margin', 'Header, footer, section, aside', 'Flex, grid, block, inline'], answer: 1 },
+      { q: 'Flexbox is primarily used for:', options: ['Database queries', '3D transforms', 'One-dimensional layout (row or column)', 'Animation keyframes'], answer: 2 },
+      { q: 'Which HTML tag is used for the main navigation?', options: ['<main>', '<header>', '<nav>', '<section>'], answer: 2 },
+      { q: 'CSS specificity determines:', options: ['How fast a page loads', 'Which CSS rule applies when multiple rules match', 'The order of HTML elements', 'The number of HTTP requests'], answer: 1 },
+      { q: 'A semantic HTML element is one that:', options: ['Has no styling by default', 'Clearly describes its meaning/purpose', 'Is only used inside <head>', 'Cannot contain text'], answer: 1 },
+    ];
+  }
+  if (t.includes('sql') || t.includes('database') || t.includes('postgres') || t.includes('mysql')) {
+    return [
+      { q: 'SELECT * FROM users WHERE active = true — this query:', options: ['Deletes all active users', 'Returns all columns for active users', 'Updates active users', 'Creates a new table'], answer: 1 },
+      { q: 'A PRIMARY KEY in a database table:', options: ['Can be NULL', 'Uniquely identifies each row', 'Is always an integer', 'Must be a foreign key too'], answer: 1 },
+      { q: 'JOIN in SQL is used to:', options: ['Combine rows from two or more tables', 'Delete duplicate rows', 'Create a new table', 'Sort query results'], answer: 0 },
+      { q: 'Indexing a database column improves:', options: ['Insert speed', 'Query/read performance', 'Storage efficiency', 'Data integrity'], answer: 1 },
+      { q: 'ACID in databases stands for:', options: ['Atomicity, Consistency, Isolation, Durability', 'Access, Control, Index, Delete', 'Array, Cache, Insert, Drop', 'Architecture, Code, Interface, Data'], answer: 0 },
+    ];
+  }
+  // default quiz
+  return [
+    {
+      q: 'Which of the following best describes the purpose of this module?',
+      options: ['To introduce core concepts and foundational knowledge', 'To configure network infrastructure', 'To design marketing materials', 'To manage financial spreadsheets'],
+      answer: 0
+    },
+    {
+      q: 'What is the recommended approach when learning a new technical skill?',
+      options: ['Skip theory and jump straight to projects', 'Understand concepts first, then apply them with practice', 'Memorize syntax without understanding', 'Avoid documentation and tutorials'],
+      answer: 1
+    },
+    {
+      q: 'Which habit best supports long-term skill retention?',
+      options: ['Study everything in one marathon session', 'Never review past material', 'Practice consistently with spaced repetition', 'Rely solely on passive watching'],
+      answer: 2
+    },
+    {
+      q: 'When you encounter a difficult concept, what should you do first?',
+      options: ['Skip it permanently', 'Break it into smaller sub-problems', 'Give up and switch topics', 'Ignore it and move on'],
+      answer: 1
+    },
+    {
+      q: 'What does "iterative learning" mean?',
+      options: ['Learning once and never revisiting', 'Continuously refining understanding through repeated exposure', 'Reading a book cover to cover exactly once', 'Watching videos at 3× speed only'],
+      answer: 1
+    },
+  ];
+}
+
+function ModuleQuiz({ module, onPass, onFail }) {
+  const questions = getQuiz(module.title);
+  const [answers, setAnswers] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+  const [score, setScore] = useState(null);
+
+  const handleSelect = (qIdx, optIdx) => {
+    if (submitted) return;
+    setAnswers(prev => ({ ...prev, [qIdx]: optIdx }));
+  };
+
+  const handleSubmit = () => {
+    if (Object.keys(answers).length < questions.length) return;
+    const correct = questions.filter((q, i) => answers[i] === q.answer).length;
+    const pct = correct / questions.length;
+    setScore({ correct, total: questions.length, pct });
+    setSubmitted(true);
+    if (pct >= PASS_THRESHOLD) {
+      setTimeout(() => onPass(), 1200);
+    }
+  };
+
+  const handleRetry = () => {
+    setAnswers({});
+    setSubmitted(false);
+    setScore(null);
+    onFail?.();
+  };
+
+  const allAnswered = Object.keys(answers).length === questions.length;
+  const passed = score && score.pct >= PASS_THRESHOLD;
+
+  return (
+    <div style={{
+      background: '#0D1526',
+      border: `1px solid ${passed ? '#10B98140' : submitted ? '#EF444440' : '#1E2D45'}`,
+      borderRadius: 12, padding: '24px',
+      animation: 'fadeUp 0.4s ease'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: '50%',
+          background: passed ? '#10B98120' : '#38BDF820',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 18
+        }}>
+          {passed ? '🏆' : '📝'}
+        </div>
+        <div>
+          <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 15, color: '#F0F6FF' }}>
+            Module Quiz
+          </div>
+          <div style={{ fontSize: 12, color: '#8BA3C0', marginTop: 2 }}>
+            Score ≥70% to unlock the next module
+          </div>
+        </div>
+        {score && (
+          <div style={{
+            marginLeft: 'auto',
+            fontFamily: "'Syne', sans-serif", fontWeight: 700,
+            fontSize: 20,
+            color: passed ? '#10B981' : '#EF4444'
+          }}>
+            {score.correct}/{score.total}
+          </div>
+        )}
+      </div>
+
+      {submitted && score && (
+        <div style={{
+          padding: '14px 16px', borderRadius: 8, marginBottom: 20,
+          background: passed ? '#10B98115' : '#EF444415',
+          border: `1px solid ${passed ? '#10B98140' : '#EF444440'}`,
+          display: 'flex', alignItems: 'center', gap: 12
+        }}>
+          <span style={{ fontSize: 24 }}>{passed ? '🎉' : '😞'}</span>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 14, color: passed ? '#10B981' : '#EF4444' }}>
+              {passed ? 'Passed! Unlocking next module...' : `Failed — ${Math.round(score.pct * 100)}% (need 70%)`}
+            </div>
+            <div style={{ fontSize: 12, color: '#8BA3C0', marginTop: 2 }}>
+              {passed
+                ? 'Great job! Your progress has been saved.'
+                : 'Review the video and try again.'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {questions.map((q, qi) => (
+          <div key={qi}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#F0F6FF', marginBottom: 10, lineHeight: 1.5 }}>
+              {qi + 1}. {q.q}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {q.options.map((opt, oi) => {
+                const selected = answers[qi] === oi;
+                const isCorrect = submitted && oi === q.answer;
+                const isWrong = submitted && selected && oi !== q.answer;
+                return (
+                  <div
+                    key={oi}
+                    onClick={() => handleSelect(qi, oi)}
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: 8,
+                      border: `1.5px solid ${isCorrect ? '#10B981' : isWrong ? '#EF4444' : selected ? '#38BDF8' : '#1E2D45'}`,
+                      background: isCorrect ? '#10B98112' : isWrong ? '#EF444412' : selected ? '#38BDF812' : '#111827',
+                      cursor: submitted ? 'default' : 'pointer',
+                      fontSize: 13,
+                      color: isCorrect ? '#10B981' : isWrong ? '#EF4444' : selected ? '#38BDF8' : '#8BA3C0',
+                      transition: 'all 0.15s',
+                      display: 'flex', alignItems: 'center', gap: 10
+                    }}
+                  >
+                    <div style={{
+                      width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                      border: `1.5px solid ${isCorrect ? '#10B981' : isWrong ? '#EF4444' : selected ? '#38BDF8' : '#4A6080'}`,
+                      background: isCorrect ? '#10B981' : isWrong ? '#EF4444' : selected ? '#38BDF8' : 'transparent',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 10, color: '#fff'
+                    }}>
+                      {isCorrect ? '✓' : isWrong ? '✗' : selected ? '●' : ''}
+                    </div>
+                    {opt}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 20, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {!submitted ? (
+          <button
+            onClick={handleSubmit}
+            disabled={!allAnswered}
+            style={{
+              fontFamily: "'Syne', sans-serif", fontWeight: 600, fontSize: 13,
+              padding: '10px 22px', borderRadius: 8, border: 'none',
+              background: allAnswered ? '#38BDF8' : '#1E2D45',
+              color: allAnswered ? '#0A0F1E' : '#4A6080',
+              cursor: allAnswered ? 'pointer' : 'not-allowed',
+              transition: 'all 0.2s'
+            }}
+          >
+            Submit Answers →
+          </button>
+        ) : !passed && (
+          <button
+            onClick={handleRetry}
+            style={{
+              fontFamily: "'Syne', sans-serif", fontWeight: 600, fontSize: 13,
+              padding: '10px 22px', borderRadius: 8, border: 'none',
+              background: '#EF444420', color: '#EF4444',
+              border: '1.5px solid #EF444440',
+              cursor: 'pointer'
+            }}
+          >
+            ↩ Retry Quiz
+          </button>
+        )}
+        {!submitted && (
+          <div style={{ fontSize: 12, color: '#4A6080', display: 'flex', alignItems: 'center' }}>
+            {Object.keys(answers).length}/{questions.length} answered
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── QUIZ PROGRESS HOOK ───────────────────────────────────────────────────────
+function useQuizProgress(enrollmentId, modules) {
   const [completedModules, setCompletedModules] = useState(new Set());
-  const [progressPct, setProgressPct] = useState(initialPct || 0);
-  const [saving, setSaving] = useState(false);
+  const [progressPct, setProgressPct] = useState(0);
 
   useEffect(() => {
     if (!enrollmentId) return;
-    const saved = localStorage.getItem(`progress_${enrollmentId}`);
+    const saved = localStorage.getItem(`quiz_progress_${enrollmentId}`);
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
-        const set = new Set(parsed);
+        const arr = JSON.parse(saved);
+        const set = new Set(arr);
         setCompletedModules(set);
         if (modules.length > 0) {
-          const pct = Math.round((set.size / modules.length) * 100);
-          setProgressPct(pct);
+          setProgressPct(Math.round((set.size / modules.length) * 100));
         }
       } catch {}
     }
@@ -249,13 +547,9 @@ function useAutoProgress(enrollmentId, modules, initialPct) {
     if (!enrollmentId || completedModules.has(moduleId)) return;
     const newCompleted = new Set([...completedModules, moduleId]);
     setCompletedModules(newCompleted);
-
     const newPct = modules.length > 0 ? Math.round((newCompleted.size / modules.length) * 100) : 0;
     setProgressPct(newPct);
-
-    localStorage.setItem(`progress_${enrollmentId}`, JSON.stringify([...newCompleted]));
-
-    setSaving(true);
+    localStorage.setItem(`quiz_progress_${enrollmentId}`, JSON.stringify([...newCompleted]));
     try {
       await supabase
         .from('user_progress')
@@ -263,14 +557,16 @@ function useAutoProgress(enrollmentId, modules, initialPct) {
         .eq('id', enrollmentId);
     } catch (e) {
       console.error('Progress sync error:', e);
-    } finally {
-      setSaving(false);
     }
   }, [enrollmentId, completedModules, modules.length]);
 
   const isModuleCompleted = (moduleId) => completedModules.has(moduleId);
+  const isModuleUnlocked = (idx) => {
+    if (idx === 0) return true;
+    return completedModules.has(modules[idx - 1]?.id);
+  };
 
-  return { progressPct, completedModules, markModuleComplete, isModuleCompleted, saving };
+  return { progressPct, completedModules, markModuleComplete, isModuleCompleted, isModuleUnlocked };
 }
 
 // ─── NAVBAR ───────────────────────────────────────────────────────────────────
@@ -1088,25 +1384,19 @@ const FEATURED_VIDEOS = [
 ];
 
 // ─── SEED FUNCTIONS ───────────────────────────────────────────────────────────
-// FIX: Now checks BOTH skill count AND module count.
-// If skills exist but modules are missing, it backfills modules for each skill.
 async function seedSkillsIfNeeded() {
   try {
-    // Check how many modules exist
     const { count: moduleCount } = await supabase
       .from('skill_modules')
       .select('*', { count: 'exact', head: true });
 
-    // If we have plenty of modules already, nothing to do
     if (moduleCount && moduleCount >= 100) return;
 
-    // Check skills
     const { count: skillCount } = await supabase
       .from('skills')
       .select('*', { count: 'exact', head: true });
 
     if (!skillCount || skillCount < 40) {
-      // No skills yet — full seed from scratch
       for (const skillData of SKILLS_WITH_MODULES) {
         const { modules, ...skillFields } = skillData;
         const { data: newSkill, error: skillError } = await supabase
@@ -1136,7 +1426,6 @@ async function seedSkillsIfNeeded() {
       }
       console.log(`Seeded ${SKILLS_WITH_MODULES.length} skills with modules`);
     } else {
-      // Skills exist but modules are missing — backfill modules only
       console.log('Skills exist but modules missing — backfilling modules...');
 
       const { data: existingSkills } = await supabase
@@ -1145,20 +1434,18 @@ async function seedSkillsIfNeeded() {
 
       if (!existingSkills) return;
 
-      // Build a map of title → modules from our seed data
       const modulesByTitle = {};
       for (const s of SKILLS_WITH_MODULES) {
         modulesByTitle[s.title] = s.modules;
       }
 
       for (const skill of existingSkills) {
-        // Check if this skill already has modules
         const { count: existing } = await supabase
           .from('skill_modules')
           .select('*', { count: 'exact', head: true })
           .eq('skill_id', skill.id);
 
-        if (existing && existing > 0) continue; // already has modules
+        if (existing && existing > 0) continue;
 
         const modules = modulesByTitle[skill.title];
         if (!modules) {
@@ -1843,7 +2130,7 @@ function DashboardPage({ user }) {
   );
 }
 
-// ─── SKILL DETAIL PAGE ────────────────────────────────────────────────────────
+// ─── UPGRADED SKILL DETAIL PAGE ───────────────────────────────────────────────
 function SkillDetailPage({ user }) {
   const { skillId } = useParams();
   const [skill, setSkill] = useState(null);
@@ -1857,14 +2144,17 @@ function SkillDetailPage({ user }) {
   const [message, setMessage] = useState('');
   const [enrolled, setEnrolled] = useState(false);
   const [enrollmentId, setEnrollmentId] = useState(null);
+
+  // Active module being watched
+  const [activeModuleIdx, setActiveModuleIdx] = useState(null);
+  // Whether the quiz for the active module is being shown
+  const [showQuiz, setShowQuiz] = useState(false);
+
   const { width } = useWindowSize();
   const isMobile = width <= 768;
 
-  const { progressPct, markModuleComplete, isModuleCompleted } = useAutoProgress(
-    enrollmentId,
-    modules,
-    0
-  );
+  const { progressPct, markModuleComplete, isModuleCompleted, isModuleUnlocked } =
+    useQuizProgress(enrollmentId, modules);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -1932,10 +2222,19 @@ function SkillDetailPage({ user }) {
     }
   };
 
-  const handleModuleOpen = async (module) => {
-    window.open(module.content_url, '_blank', 'noopener,noreferrer');
-    if (enrolled && enrollmentId) {
-      await markModuleComplete(module.id);
+  const handleSelectModule = (idx) => {
+    if (!enrolled) return;
+    if (!isModuleUnlocked(idx)) return;
+    setActiveModuleIdx(idx);
+    setShowQuiz(false);
+  };
+
+  const handleQuizPass = async (moduleId) => {
+    await markModuleComplete(moduleId);
+    setShowQuiz(false);
+    // Auto-advance to next module
+    if (activeModuleIdx !== null && activeModuleIdx < modules.length - 1) {
+      setActiveModuleIdx(activeModuleIdx + 1);
     }
   };
 
@@ -1957,159 +2256,278 @@ function SkillDetailPage({ user }) {
     setTimeout(() => setMessage(''), 3000);
   };
 
-  const getMediaIcon = (type) => {
-    switch(type) {
-      case 'video': return '🎥';
-      case 'audio': return '🎧';
-      default: return '📄';
-    }
-  };
-
   if (loading) return <Spinner />;
-  if (!skill) return <div style={{ padding: 40, textAlign:'center' }}>Skill not found.</div>;
+  if (!skill) return <div style={{ padding: 40, textAlign:'center', color: '#8BA3C0' }}>Skill not found.</div>;
+
+  const activeModule = activeModuleIdx !== null ? modules[activeModuleIdx] : null;
+  const completedCount = modules.filter(m => isModuleCompleted(m.id)).length;
 
   return (
-    <div style={{ maxWidth: 1000, margin:'0 auto', padding: isMobile ? '20px 16px' : '40px 24px' }}>
+    <div style={{ maxWidth: 1100, margin:'0 auto', padding: isMobile ? '20px 16px' : '36px 24px', fontFamily: T.fontBody }}>
       <Link to="/skills" style={{ color: T.accent, fontSize: 13, marginBottom: 14, display:'inline-block' }}>← Back to Skills</Link>
 
-      <Card style={{ marginBottom: 24 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'start', flexWrap:'wrap', gap: 16 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <Badge color={T.accent}>{skill.category || 'General'}</Badge>
-            <h1 style={{ fontFamily: T.fontHead, fontSize: isMobile ? 24 : 32, marginTop: 10, lineHeight: 1.2 }}>{skill.title}</h1>
-            <p style={{ color: T.textSec, marginTop: 8, fontSize: 14 }}>{skill.description}</p>
-            <div style={{ marginTop: 12, display:'flex', gap: 10, alignItems:'center', flexWrap: 'wrap' }}>
-              <Badge color={skill.level === 'Advanced' ? T.red : skill.level === 'Intermediate' ? T.gold : T.green}>
-                {skill.level || 'Beginner'}
-              </Badge>
-              {skill.duration && <span style={{ fontSize:12, color:T.textMut }}>⏱ {skill.duration}</span>}
-              <div style={{ display:'flex', alignItems:'center', gap: 5 }}>
-                <RatingStars rating={avgRating} readonly size={14} />
-                <span style={{ fontSize:12, color:T.textSec }}>({reviews.length})</span>
-              </div>
-            </div>
+      {/* HEADER CARD */}
+      <div style={{
+        background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: T.radius,
+        padding: isMobile ? '18px 16px' : '24px', marginBottom: 20,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: 16
+      }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Badge color={T.accent}>{skill.category || 'General'}</Badge>
+          <h1 style={{ fontFamily: T.fontHead, fontSize: isMobile ? 22 : 30, fontWeight: 800, marginTop: 10, lineHeight: 1.2, letterSpacing: '-0.03em' }}>{skill.title}</h1>
+          <p style={{ color: T.textSec, marginTop: 8, fontSize: 14, lineHeight: 1.6 }}>{skill.description}</p>
+          <div style={{ marginTop: 12, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', fontSize: 12, color: T.textMut }}>
+            <span>⏱ {skill.duration || 'Self-paced'}</span>
+            <span>•</span>
+            <span>📚 {modules.length} modules</span>
+            {reviews.length > 0 && <><span>•</span><span>⭐ {avgRating} ({reviews.length} reviews)</span></>}
           </div>
+        </div>
 
+        <div style={{ minWidth: 180, flexShrink: 0 }}>
           {user && !enrolled ? (
-            <Btn onClick={enroll} style={{ flexShrink: 0 }}>Enroll Now</Btn>
-          ) : enrolled && (
-            <div style={{ minWidth: 160, flexShrink: 0 }}>
-              <div style={{ fontSize:12, marginBottom: 5, display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: T.textSec }}>Auto Progress</span>
-                <span style={{ fontWeight: 600, color: progressPct >= 100 ? T.green : T.accent }}>{progressPct}%</span>
+            <button onClick={enroll} style={{
+              fontFamily: T.fontHead, fontWeight: 700, fontSize: 14,
+              padding: '12px 28px', borderRadius: T.radiusSm, border: 'none',
+              background: T.accent, color: T.bg, cursor: 'pointer',
+              boxShadow: `0 0 20px ${T.accentGlow}`, width: '100%'
+            }}>Enroll Now</button>
+          ) : enrolled ? (
+            <div>
+              <div style={{ fontSize: 12, marginBottom: 6, display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: T.textSec }}>Course Progress</span>
+                <span style={{ fontWeight: 700, color: progressPct >= 100 ? T.green : T.accent }}>{progressPct}%</span>
               </div>
               <div style={{ height: 8, background: T.border, borderRadius: 4 }}>
                 <div style={{
                   width: `${progressPct}%`, height: '100%',
-                  background: progressPct >= 100 ? T.green : T.accent,
+                  background: progressPct >= 100 ? T.green : `linear-gradient(90deg, ${T.accent}, ${T.accentDim})`,
                   borderRadius: 4, transition: 'width 0.6s ease'
                 }} />
               </div>
-              {progressPct >= 100 && (
-                <div style={{ fontSize: 12, color: T.green, marginTop: 5, textAlign: 'center' }}>🎉 Course Complete!</div>
-              )}
-              <div style={{ fontSize: 11, color: T.textMut, marginTop: 4, textAlign: 'center' }}>
-                Opens modules = tracks progress
+              <div style={{ fontSize: 12, color: T.textMut, marginTop: 5, textAlign: 'center' }}>
+                {completedCount}/{modules.length} modules passed
               </div>
+              {progressPct >= 100 && (
+                <div style={{ fontSize: 13, color: T.green, marginTop: 6, textAlign: 'center', fontWeight: 600 }}>🎉 Course Complete!</div>
+              )}
             </div>
-          )}
+          ) : null}
         </div>
-      </Card>
+      </div>
 
-      {modules.length > 0 ? (
-        <Card style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h2 style={{ fontFamily: T.fontHead, fontSize: isMobile ? 17 : 20 }}>📚 Course Modules</h2>
+      {/* MAIN LAYOUT: SIDEBAR + PLAYER */}
+      <div style={{ display: 'flex', gap: 20, flexDirection: isMobile ? 'column' : 'row', alignItems: 'start' }}>
+
+        {/* MODULE LIST SIDEBAR */}
+        <div style={{
+          width: isMobile ? '100%' : 300, flexShrink: 0,
+          background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: T.radius, overflow: 'hidden'
+        }}>
+          <div style={{ padding: '16px 18px', borderBottom: `1px solid ${T.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ fontFamily: T.fontHead, fontSize: 15, fontWeight: 700 }}>📚 Modules</h2>
             {enrolled && (
-              <span style={{ fontSize: 12, color: T.textSec }}>
-                {[...Array(modules.length)].filter((_, i) => isModuleCompleted(modules[i]?.id)).length}/{modules.length} opened
-              </span>
+              <span style={{ fontSize: 11, color: T.textSec }}>{completedCount}/{modules.length}</span>
             )}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ maxHeight: isMobile ? 260 : 500, overflowY: 'auto' }}>
             {modules.map((mod, idx) => {
-              const done = enrolled && isModuleCompleted(mod.id);
+              const done = isModuleCompleted(mod.id);
+              const unlocked = isModuleUnlocked(idx);
+              const isActive = activeModuleIdx === idx;
+
               return (
                 <div
                   key={mod.id}
-                  onClick={() => handleModuleOpen(mod)}
-                  className={`module-item ${done ? 'completed' : ''}`}
+                  onClick={() => handleSelectModule(idx)}
                   style={{
-                    padding: isMobile ? '10px 12px' : '12px 16px',
-                    background: done ? `${T.green}10` : T.bgMid,
-                    borderRadius: T.radiusSm,
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    cursor: 'pointer',
-                    border: `1px solid ${done ? T.green + '40' : T.border}`,
+                    padding: '12px 16px',
+                    borderBottom: `1px solid ${T.border}20`,
+                    display: 'flex', alignItems: 'center', gap: 11,
+                    cursor: !enrolled ? 'default' : !unlocked ? 'not-allowed' : 'pointer',
+                    background: isActive ? `${T.accent}10` : done ? `${T.green}08` : 'transparent',
+                    borderLeft: `3px solid ${isActive ? T.accent : done ? T.green : 'transparent'}`,
+                    opacity: !enrolled || unlocked ? 1 : 0.45,
                     transition: 'all 0.2s'
                   }}
                 >
-                  <div style={{ fontSize: 20, flexShrink: 0 }}>
-                    {done ? (
-                      <span className="check-pop" style={{ display: 'inline-block' }}>✅</span>
-                    ) : getMediaIcon(mod.content_type)}
+                  <div style={{
+                    width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13,
+                    background: done ? `${T.green}20` : isActive ? `${T.accent}20` : T.border,
+                    border: `1.5px solid ${done ? T.green : isActive ? T.accent : T.border}`
+                  }}>
+                    {done ? '✓' : !unlocked ? '🔒' : isActive ? '▶' : idx + 1}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14, color: done ? T.green : T.textPri, marginBottom: 2 }}>
-                      {idx + 1}. {mod.title}
+                    <div style={{
+                      fontSize: 13, fontWeight: done ? 500 : 600,
+                      color: done ? T.green : isActive ? T.accent : T.textPri,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                    }}>
+                      {mod.title}
                     </div>
-                    {mod.description && <div style={{ fontSize: 12, color: T.textSec, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mod.description}</div>}
-                  </div>
-                  <div style={{ fontSize: 11, color: done ? T.green : T.accent, flexShrink: 0, fontFamily: T.fontHead }}>
-                    {done ? 'Done ✓' : 'Open →'}
+                    <div style={{ fontSize: 11, color: T.textMut, marginTop: 1 }}>
+                      {done ? 'Completed' : !unlocked ? 'Locked' : 'Video lesson'}
+                    </div>
                   </div>
                 </div>
               );
             })}
           </div>
-          {enrolled && (
-            <div style={{ marginTop: 14, padding: '10px 14px', background: `${T.accent}10`, borderRadius: T.radiusSm, fontSize: 12, color: T.textSec, textAlign: 'center' }}>
-              💡 Click any module to open it — progress updates automatically
+        </div>
+
+        {/* VIDEO PLAYER + QUIZ PANEL */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {!enrolled ? (
+            <div style={{
+              background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: T.radius,
+              padding: '48px 24px', textAlign: 'center'
+            }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>🎓</div>
+              <h3 style={{ fontFamily: T.fontHead, fontSize: 20, marginBottom: 10 }}>Enroll to Start Learning</h3>
+              <p style={{ color: T.textSec, fontSize: 14, marginBottom: 24 }}>Enroll to watch videos, take quizzes, and track your progress.</p>
+              <button onClick={enroll} style={{
+                fontFamily: T.fontHead, fontWeight: 700, fontSize: 14,
+                padding: '12px 32px', borderRadius: T.radiusSm, border: 'none',
+                background: T.accent, color: T.bg, cursor: 'pointer'
+              }}>Enroll Now — It's Free</button>
+            </div>
+          ) : activeModule ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Video */}
+              <div style={{
+                background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: T.radius,
+                overflow: 'hidden'
+              }}>
+                <div style={{ padding: '14px 18px', borderBottom: `1px solid ${T.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontFamily: T.fontHead, fontWeight: 700, fontSize: 15 }}>
+                      {activeModuleIdx + 1}. {activeModule.title}
+                    </div>
+                    {activeModule.description && (
+                      <div style={{ fontSize: 12, color: T.textSec, marginTop: 3 }}>{activeModule.description}</div>
+                    )}
+                  </div>
+                  {isModuleCompleted(activeModule.id) && (
+                    <span style={{ fontSize: 11, background: `${T.green}15`, color: T.green, border: `1px solid ${T.green}30`, borderRadius: 99, padding: '3px 10px', flexShrink: 0 }}>
+                      ✓ Passed
+                    </span>
+                  )}
+                </div>
+                <div style={{ padding: 16 }}>
+                  <VideoPlayer url={activeModule.content_url} moduleTitle={activeModule.title} />
+                </div>
+                {/* CTA below video */}
+                {!isModuleCompleted(activeModule.id) && !showQuiz && (
+                  <div style={{
+                    padding: '12px 18px', borderTop: `1px solid ${T.border}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10
+                  }}>
+                    <div style={{ fontSize: 13, color: T.textSec }}>
+                      Watched the video? Take the quiz to unlock the next module.
+                    </div>
+                    <button
+                      onClick={() => setShowQuiz(true)}
+                      style={{
+                        fontFamily: T.fontHead, fontWeight: 700, fontSize: 13,
+                        padding: '9px 20px', borderRadius: T.radiusSm, border: 'none',
+                        background: T.accent, color: T.bg, cursor: 'pointer'
+                      }}>
+                      Take Quiz →
+                    </button>
+                  </div>
+                )}
+                {isModuleCompleted(activeModule.id) && activeModuleIdx < modules.length - 1 && (
+                  <div style={{
+                    padding: '12px 18px', borderTop: `1px solid ${T.border}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10
+                  }}>
+                    <div style={{ fontSize: 13, color: T.green, fontWeight: 600 }}>✓ Module complete!</div>
+                    <button
+                      onClick={() => { setActiveModuleIdx(activeModuleIdx + 1); setShowQuiz(false); }}
+                      style={{
+                        fontFamily: T.fontHead, fontWeight: 700, fontSize: 13,
+                        padding: '9px 20px', borderRadius: T.radiusSm, border: 'none',
+                        background: T.green, color: '#fff', cursor: 'pointer'
+                      }}>
+                      Next Module →
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Quiz */}
+              {showQuiz && !isModuleCompleted(activeModule.id) && (
+                <ModuleQuiz
+                  module={activeModule}
+                  onPass={() => handleQuizPass(activeModule.id)}
+                  onFail={() => {}}
+                />
+              )}
+            </div>
+          ) : (
+            /* No module selected yet */
+            <div style={{
+              background: T.bgCard, border: `1px dashed ${T.border}`, borderRadius: T.radius,
+              padding: '48px 24px', textAlign: 'center', color: T.textSec
+            }}>
+              <div style={{ fontSize: 40, marginBottom: 14 }}>▶️</div>
+              <h3 style={{ fontFamily: T.fontHead, fontSize: 17, color: T.textPri, marginBottom: 8 }}>Select a Module to Begin</h3>
+              <p style={{ fontSize: 13, lineHeight: 1.6 }}>
+                Click any unlocked module from the list to start watching.<br/>
+                Complete the quiz at the end to unlock the next one.
+              </p>
             </div>
           )}
-        </Card>
-      ) : (
-        // FIX: Show a clear message when modules haven't loaded yet
-        <Card style={{ marginBottom: 24, textAlign: 'center', padding: 32 }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>📭</div>
-          <h3 style={{ fontFamily: T.fontHead, fontSize: 16, marginBottom: 8 }}>No modules found</h3>
-          <p style={{ color: T.textSec, fontSize: 13 }}>
-            Module content is being loaded. If this persists, the videos may still be seeding — please refresh the page in a moment.
-          </p>
-        </Card>
-      )}
+        </div>
+      </div>
 
-      <Card>
-        <h2 style={{ fontFamily: T.fontHead, fontSize: isMobile ? 17 : 20, marginBottom: 16 }}>Reviews</h2>
+      {/* REVIEWS */}
+      <div style={{ background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: isMobile ? 16 : 24, marginTop: 20 }}>
+        <h2 style={{ fontFamily: T.fontHead, fontSize: 17, fontWeight: 700, marginBottom: 16 }}>Reviews</h2>
         {user && (
-          <div style={{ marginBottom: 24, padding: isMobile ? 14 : 16, background: T.bgMid, borderRadius: T.radiusSm }}>
-            <p style={{ marginBottom: 8, fontSize: 14 }}>Your review</p>
+          <div style={{ marginBottom: 24, padding: 16, background: T.bgMid, borderRadius: T.radiusSm }}>
+            <p style={{ marginBottom: 8, fontSize: 13, color: T.textSec }}>Your review</p>
             <RatingStars rating={userRating} onRate={setUserRating} />
             <textarea
-              rows={2}
-              value={userComment}
-              onChange={e => setUserComment(e.target.value)}
+              rows={2} value={userComment} onChange={e => setUserComment(e.target.value)}
               placeholder="Share your experience..."
               style={{
                 width: '100%', marginTop: 10, padding: '10px 12px',
                 background: T.bgCard, border: `1.5px solid ${T.border}`,
-                borderRadius: T.radiusSm, color: T.textPri,
-                fontFamily: T.fontBody, fontSize: 13, resize: 'vertical'
+                borderRadius: T.radiusSm, color: T.textPri, fontFamily: T.fontBody,
+                fontSize: 13, resize: 'vertical'
               }}
             />
-            {message && <Alert message={message} type={message.includes('saved') ? 'success' : 'error'} style={{ marginTop: 8 }} />}
-            <Btn small onClick={submitReview} disabled={submitting} style={{ marginTop: 10 }}>
+            {message && (
+              <div style={{
+                marginTop: 8, padding: '8px 12px', borderRadius: 6, fontSize: 12,
+                background: message.includes('saved') ? `${T.green}15` : `${T.red}15`,
+                color: message.includes('saved') ? T.green : T.red,
+                border: `1px solid ${message.includes('saved') ? `${T.green}30` : `${T.red}30`}`
+              }}>{message}</div>
+            )}
+            <button
+              onClick={submitReview} disabled={submitting}
+              style={{
+                marginTop: 10, fontFamily: T.fontHead, fontWeight: 600, fontSize: 13,
+                padding: '8px 18px', borderRadius: 7, border: 'none',
+                background: submitting ? T.border : T.accent,
+                color: submitting ? T.textMut : T.bg,
+                cursor: submitting ? 'not-allowed' : 'pointer'
+              }}>
               {submitting ? 'Saving…' : 'Submit Review'}
-            </Btn>
+            </button>
           </div>
         )}
         {reviews.length === 0 ? (
-          <p style={{ color: T.textSec, fontSize: 13 }}>No reviews yet. Be the first!</p>
+          <p style={{ color: T.textMut, fontSize: 13 }}>No reviews yet. Be the first!</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {reviews.map(r => (
-              <div key={r.id} style={{ padding: '12px 0', borderBottom: `1px solid ${T.border}` }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <div key={r.id} style={{ padding: '12px 0', borderBottom: `1px solid ${T.border}40` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
                   <span style={{ fontSize: 13, fontWeight: 500, color: T.textSec }}>{r.users?.email?.split('@')[0] || 'Learner'}</span>
                   <RatingStars rating={r.rating} readonly size={13} />
                 </div>
@@ -2118,7 +2536,7 @@ function SkillDetailPage({ user }) {
             ))}
           </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 }
@@ -2720,8 +3138,6 @@ export default function App() {
   const { user, role, loading, signOut } = useAuth();
 
   useEffect(() => {
-    // FIX: seedSkillsIfNeeded now checks both skills AND modules,
-    // and backfills missing modules for existing skills.
     seedSkillsIfNeeded();
     seedAdminUser();
   }, []);
