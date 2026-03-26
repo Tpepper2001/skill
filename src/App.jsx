@@ -1,6 +1,4 @@
-Here is the complete updated App.jsx with the upgraded skill detail page that includes video quizzes and module unlocking:
 
-```jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Link, useNavigate, useLocation, Navigate, useParams } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
