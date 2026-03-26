@@ -364,7 +364,7 @@ function useAutoProgress(enrollmentId, modules, initialPct) {
       )}
     </nav>
   );
-}
+
 
 // ─── LANDING PAGE ─────────────────────────────────────────────────────────────
 function LandingPage() {
